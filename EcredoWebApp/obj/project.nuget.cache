@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "Tr6wVPCTOUs=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\lchil\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.10\\microsoft.aspnetcore.app.internal.assets.10.0.10.nupkg.sha512"
+  ],
+  "logs": []
+}

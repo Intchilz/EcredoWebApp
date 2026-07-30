@@ -1,0 +1,29 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">Store</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+        <footer class="footer">
+            <div class="container">
+                <p>&copy; @DateTime.Today.Year - ECredo Enterprise - <a href="https://www.example.com">Privacy</a></p>
+            </div>
+        </footer>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
