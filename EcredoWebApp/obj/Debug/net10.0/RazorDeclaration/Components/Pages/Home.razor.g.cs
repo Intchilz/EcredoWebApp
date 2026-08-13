@@ -80,6 +80,15 @@ using EcredoWebApp.Components.Layout
     ;
     #line default
     #line hidden
+    [global::Microsoft.AspNetCore.Components.LayoutAttribute(typeof(
+#nullable restore
+#line (2,9)-(2,19) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Home.razor"
+HomeLayout
+
+#line default
+#line hidden
+#nullable disable
+    ))]
     [global::Microsoft.AspNetCore.Components.RouteAttribute(
     // language=Route,Component
 #nullable restore

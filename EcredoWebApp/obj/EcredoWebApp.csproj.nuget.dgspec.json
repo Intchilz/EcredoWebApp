@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj": {}
+    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj": {}
   },
   "projects": {
-    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj": {
+    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj",
+        "projectUniqueName": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj",
         "projectName": "EcredoWebApp",
-        "projectPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj",
+        "projectPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj",
         "packagesPath": "C:\\Users\\lchil\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\obj\\",
+        "outputPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\lchil\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -49,8 +49,28 @@
             "Microsoft.AspNetCore.App.Internal.Assets": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[10.0.10, )",
+              "version": "[10.0.11, )",
               "autoReferenced": true
+            },
+            "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[10.0.10, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[10.0.10, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[10.0.10, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[10.0.3, )"
             }
           },
           "imports": [
@@ -72,7 +92,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.302/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.303/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

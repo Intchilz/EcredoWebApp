@@ -1,0 +1,1969 @@
+@page "/store"
+@rendermode InteractiveServer
+@layout StoreLayout
+@using System.Security.Claims
+@using EcredoWebApp.Data
+@using EcredoWebApp.Enums
+@using EcredoWebApp.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext Db
+@inject NavigationManager NavigationManager
+
+<PageTitle>Store | Ecredo</PageTitle>
+
+<div class="store-page">
+
+    <!-- =========================================================
+         STORE HEADER
+         ========================================================= -->
+
+    <section class="store-hero">
+        <div class="store-hero-content">
+            <span class="store-eyebrow">ECREDO STORE</span>
+
+            <h1>Find your next device.</h1>
+
+            <p>
+                Shop new and pre-owned phones and devices,
+                or submit a swap request for your current device.
+            </p>
+
+            <div class="hero-actions">
+
+                @if (IsAuthenticated)
+                {
+                    <button class="hero-action primary"
+                            @onclick="OpenSwapModal">
+                        <span class="bi bi-arrow-left-right"></span>
+                        Request a Swap
+                    </button>
+                }
+                else
+                {
+                    <button class="hero-action primary"
+                            @onclick="GoToLogin">
+                        <span class="bi bi-arrow-left-right"></span>
+                        Sign in to Request a Swap
+                    </button>
+                }
+
+                <button class="hero-action secondary"
+                        @onclick="ScrollToProducts">
+                    Browse Products
+                </button>
+
+            </div>
+        </div>
+    </section>
+
+
+    <!-- =========================================================
+         CUSTOMER TOOLBAR
+         ========================================================= -->
+
+    <section class="store-toolbar">
+
+        <div class="toolbar-inner">
+
+            <div class="search-container">
+                <span class="bi bi-search"></span>
+
+                <input type="text"
+                       placeholder="Search phones, brands or models..."
+                       @bind="SearchTerm"
+                       @bind:event="oninput" />
+
+                @if (!string.IsNullOrWhiteSpace(SearchTerm))
+                {
+                    <button type="button"
+                            class="clear-search"
+                            @onclick="ClearSearch">
+                        <span class="bi bi-x"></span>
+                    </button>
+                }
+            </div>
+
+
+            <div class="toolbar-actions">
+
+                @if (IsAuthenticated)
+                {
+                    <button type="button"
+                            class="toolbar-button"
+                            @onclick="OpenOrders">
+
+                        <span class="bi bi-receipt"></span>
+
+                        <span>My Orders</span>
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            class="toolbar-button"
+                            @onclick="GoToLogin">
+
+                        <span class="bi bi-person"></span>
+
+                        <span>Sign In</span>
+                    </button>
+                }
+
+
+                <button type="button"
+                        class="cart-button"
+                        @onclick="OpenCart">
+
+                    <span class="bi bi-cart3"></span>
+
+                    <span>Cart</span>
+
+                    @if (CartCount > 0)
+                    {
+                        <span class="cart-count">@CartCount</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =========================================================
+         MAIN STORE CONTENT
+         ========================================================= -->
+
+    <main class="store-content">
+
+        <!-- CATEGORY SIDEBAR -->
+
+        <aside class="category-sidebar">
+
+            <div class="sidebar-header">
+                <h2>Categories</h2>
+
+                <span>
+                    @Categories.Count
+                    @(Categories.Count == 1 ? "category" : "categories")
+                </span>
+            </div>
+
+
+            <button type="button"
+                    class="category-option @(SelectedCategoryId == null ? "active" : "")"
+                    @onclick="SelectAllCategories">
+
+                <span class="category-icon">
+                    <span class="bi bi-grid"></span>
+                </span>
+
+                <span>All Products</span>
+
+                <strong>@Products.Count</strong>
+
+            </button>
+
+
+            @foreach (var category in Categories)
+            {
+                var categoryId = category.CategoryId;
+
+                <button type="button"
+                        class="category-option @(SelectedCategoryId == categoryId ? "active" : "")"
+                        @onclick="() => SelectCategory(categoryId)">
+
+                    <span class="category-icon">
+                        <span class="bi bi-tag"></span>
+                    </span>
+
+                    <span>@category.Name</span>
+
+                    <strong>
+                        @Products.Count(p => p.CategoryId == categoryId)
+                    </strong>
+
+                </button>
+            }
+
+        </aside>
+
+
+        <!-- PRODUCT AREA -->
+
+        <section class="product-area"
+                 id="products">
+
+            <div class="product-area-header">
+
+                <div>
+
+                    <span class="section-label">OUR PRODUCTS</span>
+
+                    <h2>
+                        @(SelectedCategoryId.HasValue
+                            ? Categories.FirstOrDefault(c =>
+                                c.CategoryId == SelectedCategoryId)?.Name
+                              ?? "Products"
+                            : "All Products")
+                    </h2>
+
+                    <p>
+                        Showing @FilteredProducts.Count()
+                        @(FilteredProducts.Count() == 1
+                            ? "product"
+                            : "products")
+                    </p>
+
+                </div>
+
+
+                <div class="sort-container">
+
+                    <label for="sortProducts">
+                        Sort
+                    </label>
+
+                    <select id="sortProducts"
+                            @bind="SelectedSort">
+
+                        <option value="newest">Newest</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                        <option value="name">Name</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <!-- FILTERS -->
+
+            <div class="filter-row">
+
+                <button type="button"
+                        class="condition-filter @(SelectedCondition == null ? "active" : "")"
+                        @onclick="() => SelectCondition(null)">
+                    All
+                </button>
+
+                @foreach (var condition in Enum.GetValues<ProductCondition>())
+                {
+                    <button type="button"
+                            class="condition-filter @(SelectedCondition == condition ? "active" : "")"
+                            @onclick="() => SelectCondition(condition)">
+
+                        @GetConditionDisplayName(condition)
+
+                    </button>
+                }
+
+            </div>
+
+
+            @if (IsLoading)
+            {
+                <div class="store-loading">
+
+                    <div class="loading-spinner"></div>
+
+                    <p>Loading products...</p>
+
+                </div>
+            }
+            else if (!FilteredProducts.Any())
+            {
+                <div class="store-empty">
+
+                    <div class="empty-icon">
+                        <span class="bi bi-search"></span>
+                    </div>
+
+                    <h3>No products found</h3>
+
+                    <p>
+                        We couldn't find products matching your
+                        search or filters.
+                    </p>
+
+                    <button type="button"
+                            @onclick="ClearAllFilters">
+                        Clear Filters
+                    </button>
+
+                </div>
+            }
+            else
+            {
+                <div class="product-grid">
+
+                    @foreach (var product in FilteredProducts)
+                    {
+                        <article class="product-card">
+
+                            <!-- IMAGE -->
+
+                            <div class="product-image-container">
+
+                                @{
+                                    var image = GetPrimaryImage(product);
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(image))
+                                {
+                                    <img src="@image"
+                                         alt="@product.Name"
+                                         class="product-image" />
+                                }
+                                else
+                                {
+                                    <div class="product-image-placeholder">
+                                        <span class="bi bi-phone"></span>
+                                    </div>
+                                }
+
+
+                                <span class="condition-badge">
+                                    @GetConditionDisplayName(product.Condition)
+                                </span>
+
+                            </div>
+
+
+                            <!-- INFORMATION -->
+
+                            <div class="product-card-body">
+
+                                <span class="product-category">
+                                    @product.Category?.Name
+                                </span>
+
+                                <h3>@product.Name</h3>
+
+                                @if (!string.IsNullOrWhiteSpace(product.Brand)
+                                    || !string.IsNullOrWhiteSpace(product.Model))
+                                {
+                                    <span class="product-model">
+
+                                        @product.Brand
+
+                                        @if (!string.IsNullOrWhiteSpace(product.Brand)
+                                            && !string.IsNullOrWhiteSpace(product.Model))
+                                        {
+                                            <text> • </text>
+                                        }
+
+                                        @product.Model
+
+                                    </span>
+                                }
+
+
+                                @if (!string.IsNullOrWhiteSpace(product.Description))
+                                {
+                                    <p class="product-description">
+                                        @product.Description
+                                    </p>
+                                }
+
+
+                                <div class="product-card-footer">
+
+                                    <div>
+
+                                        <span class="price-label">
+                                            Price
+                                        </span>
+
+                                        <strong class="product-price">
+                                            K @product.Price.ToString("N2")
+                                        </strong>
+
+                                    </div>
+
+
+                                    @if (product.Quantity <= 0)
+                                    {
+                                        <span class="stock-badge out">
+                                            Out of stock
+                                        </span>
+                                    }
+                                    else if (product.Quantity <= 5)
+                                    {
+                                        <span class="stock-badge low">
+                                            Only @product.Quantity left
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="stock-badge">
+                                            In stock
+                                        </span>
+                                    }
+
+                                </div>
+
+
+                                <button type="button"
+                                        class="add-cart-button"
+                                        disabled="@(product.Quantity <= 0)"
+                                        @onclick="() => AddToCart(product)">
+
+                                    @if (product.Quantity <= 0)
+                                    {
+                                        <span>Out of Stock</span>
+                                    }
+                                    else if (IsInCart(product.ProductId))
+                                    {
+                                        <span class="bi bi-check2"></span>
+                                        <span>Added to Cart</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="bi bi-cart-plus"></span>
+                                        <span>Add to Cart</span>
+                                    }
+
+                                </button>
+
+                            </div>
+
+                        </article>
+                    }
+
+                </div>
+            }
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- =============================================================
+     CART DRAWER
+     ============================================================= -->
+
+@if (ShowCart)
+{
+    <div class="store-overlay"
+         @onclick="CloseCart">
+
+        <aside class="cart-drawer"
+               @onclick:stopPropagation>
+
+            <div class="drawer-header">
+
+                <div>
+                    <span class="section-label">YOUR CART</span>
+                    <h2>Shopping Cart</h2>
+                </div>
+
+                <button type="button"
+                        class="close-button"
+                        @onclick="CloseCart">
+                    <span class="bi bi-x-lg"></span>
+                </button>
+
+            </div>
+
+
+            @if (!Cart.Any())
+            {
+                <div class="cart-empty">
+
+                    <span class="bi bi-cart-x"></span>
+
+                    <h3>Your cart is empty</h3>
+
+                    <p>
+                        Add a product to your cart to begin your order.
+                    </p>
+
+                </div>
+            }
+            else
+            {
+                <div class="cart-items">
+
+                    @foreach (var item in Cart)
+                    {
+                        <div class="cart-item">
+
+                            @{
+                                var image = GetPrimaryImage(item.Product);
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(image))
+                            {
+                                <img src="@image"
+                                     alt="@item.Product.Name" />
+                            }
+                            else
+                            {
+                                <div class="cart-item-placeholder">
+                                    <span class="bi bi-phone"></span>
+                                </div>
+                            }
+
+
+                            <div class="cart-item-details">
+
+                                <strong>
+                                    @item.Product.Name
+                                </strong>
+
+                                <span>
+                                    K @item.Product.Price.ToString("N2")
+                                </span>
+
+
+                                <div class="quantity-control">
+
+                                    <button type="button"
+                                            @onclick="() => DecreaseQuantity(item)">
+                                        −
+                                    </button>
+
+                                    <span>@item.Quantity</span>
+
+                                    <button type="button"
+                                            @onclick="() => IncreaseQuantity(item)">
+                                        +
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+
+                            <button type="button"
+                                    class="remove-cart-item"
+                                    @onclick="() => RemoveFromCart(item)">
+                                <span class="bi bi-trash"></span>
+                            </button>
+
+                        </div>
+                    }
+
+                </div>
+
+
+                <div class="cart-summary">
+
+                    <div>
+                        <span>Items</span>
+                        <strong>@CartCount</strong>
+                    </div>
+
+                    <div class="cart-total">
+                        <span>Total</span>
+                        <strong>
+                            K @CartTotal.ToString("N2")
+                        </strong>
+                    </div>
+
+                    <button type="button"
+                            class="checkout-button"
+                            @onclick="OpenCheckout">
+
+                        Proceed to Checkout
+                        <span class="bi bi-arrow-right"></span>
+
+                    </button>
+
+                </div>
+            }
+
+        </aside>
+
+    </div>
+}
+
+
+<!-- =============================================================
+     CHECKOUT MODAL
+     ============================================================= -->
+
+@if (ShowCheckout)
+{
+    <div class="modal-backdrop">
+
+        <div class="checkout-modal">
+
+            <div class="modal-header">
+
+                <div>
+                    <span class="section-label">CHECKOUT</span>
+                    <h2>Complete Your Order</h2>
+                </div>
+
+                <button type="button"
+                        class="close-button"
+                        @onclick="CloseCheckout"
+                        disabled="@IsSubmittingOrder">
+                    <span class="bi bi-x-lg"></span>
+                </button>
+
+            </div>
+
+
+            @if (!string.IsNullOrWhiteSpace(CheckoutError))
+            {
+                <div class="modal-error">
+                    <span class="bi bi-exclamation-circle"></span>
+                    @CheckoutError
+                </div>
+            }
+
+
+            <div class="checkout-body">
+
+                <div class="checkout-products">
+
+                    <h3>Order Summary</h3>
+
+                    @foreach (var item in Cart)
+                    {
+                        <div class="checkout-item">
+
+                            <div>
+                                <strong>
+                                    @item.Product.Name
+                                </strong>
+
+                                <span>
+                                    @item.Quantity ×
+                                    K @item.Product.Price.ToString("N2")
+                                </span>
+                            </div>
+
+                            <strong>
+                                K @((item.Product.Price * item.Quantity).ToString("N2"))
+                            </strong>
+
+                        </div>
+                    }
+
+                    <div class="checkout-total">
+
+                        <span>Total</span>
+
+                        <strong>
+                            K @CartTotal.ToString("N2")
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="payment-selection">
+
+                    <h3>Payment Method</h3>
+
+                    <p>
+                        Select how you would like to pay for this order.
+                    </p>
+
+
+                    @foreach (var paymentType in Enum.GetValues<PaymentType>())
+                    {
+                        <label class="payment-option">
+
+                            <input type="radio"
+                                   name="paymentType"
+                                   value="@paymentType"
+                                   @onchange="() => SelectedPaymentType = paymentType"
+                                   checked="@(SelectedPaymentType == paymentType)" />
+
+                            <span class="payment-icon">
+
+                                @if (paymentType == PaymentType.Cash)
+                                {
+                                    <span class="bi bi-cash-stack"></span>
+                                }
+                                else if (paymentType == PaymentType.Layby)
+                                {
+                                    <span class="bi bi-calendar2-check"></span>
+                                }
+                                else
+                                {
+                                    <span class="bi bi-credit-card"></span>
+                                }
+
+                            </span>
+
+                            <span class="payment-details">
+
+                                <strong>
+                                    @GetPaymentTypeName(paymentType)
+                                </strong>
+
+                                <small>
+                                    @GetPaymentDescription(paymentType)
+                                </small>
+
+                            </span>
+
+                        </label>
+                    }
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="secondary-button"
+                        @onclick="CloseCheckout"
+                        disabled="@IsSubmittingOrder">
+                    Back
+                </button>
+
+                <button type="button"
+                        class="primary-button"
+                        @onclick="SubmitOrder"
+                        disabled="@IsSubmittingOrder">
+
+                    @if (IsSubmittingOrder)
+                    {
+                        <span class="loading-spinner small"></span>
+                        <span>Submitting...</span>
+                    }
+                    else
+                    {
+                        <span>Place Order</span>
+                        <span class="bi bi-check2"></span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =============================================================
+     SWAP REQUEST MODAL
+     ============================================================= -->
+
+@if (ShowSwapModal)
+{
+    <div class="modal-backdrop">
+
+        <div class="swap-modal">
+
+            <div class="modal-header">
+
+                <div>
+                    <span class="section-label">DEVICE SWAP</span>
+                    <h2>Request a Swap</h2>
+                </div>
+
+                <button type="button"
+                        class="close-button"
+                        @onclick="CloseSwapModal"
+                        disabled="@IsSubmittingSwap">
+                    <span class="bi bi-x-lg"></span>
+                </button>
+
+            </div>
+
+
+            @if (!string.IsNullOrWhiteSpace(SwapError))
+            {
+                <div class="modal-error">
+                    <span class="bi bi-exclamation-circle"></span>
+                    @SwapError
+                </div>
+            }
+
+
+            <div class="swap-body">
+
+                <p class="swap-intro">
+                    Tell us about the device you currently own and
+                    the device you would like to swap it for.
+                    Our administrator will review your request.
+                </p>
+
+
+                <div class="form-grid">
+
+                    <div class="form-group">
+
+                        <label>
+                            Current Device Brand
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               @bind="SwapModel.CurrentDeviceBrand"
+                               placeholder="e.g. Apple" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Current Device Model
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               @bind="SwapModel.CurrentDeviceModel"
+                               placeholder="e.g. iPhone 13" />
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label>
+                            Device Condition
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               @bind="SwapModel.DeviceCondition"
+                               placeholder="e.g. Good condition, minor scratches" />
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label>
+                            Faults / Additional Information
+                        </label>
+
+                        <textarea class="form-control"
+                                  rows="3"
+                                  @bind="SwapModel.FaultDescription"
+                                  placeholder="Describe any faults or damage...">
+                        </textarea>
+
+                    </div>
+
+
+                    <div class="form-group full-width">
+
+                        <label>
+                            Desired Device
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               @bind="SwapModel.DesiredDevice"
+                               placeholder="e.g. iPhone 15 Pro" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Estimated Top-Up Amount
+                        </label>
+
+                        <div class="money-input">
+
+                            <span>K</span>
+
+                            <input type="number"
+                                   min="0"
+                                   step="0.01"
+                                   @bind="SwapModel.EstimatedTopUpAmount" />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="secondary-button"
+                        @onclick="CloseSwapModal"
+                        disabled="@IsSubmittingSwap">
+                    Cancel
+                </button>
+
+                <button type="button"
+                        class="primary-button"
+                        @onclick="SubmitSwapRequest"
+                        disabled="@IsSubmittingSwap">
+
+                    @if (IsSubmittingSwap)
+                    {
+                        <span class="loading-spinner small"></span>
+                        <span>Submitting...</span>
+                    }
+                    else
+                    {
+                        <span>Submit Swap Request</span>
+                        <span class="bi bi-arrow-right"></span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =============================================================
+     ORDER HISTORY MODAL
+     ============================================================= -->
+
+@if (ShowOrders)
+{
+    <div class="modal-backdrop">
+
+        <div class="orders-modal">
+
+            <div class="modal-header">
+
+                <div>
+                    <span class="section-label">CUSTOMER ACCOUNT</span>
+                    <h2>My Orders</h2>
+                </div>
+
+                <button type="button"
+                        class="close-button"
+                        @onclick="CloseOrders">
+                    <span class="bi bi-x-lg"></span>
+                </button>
+
+            </div>
+
+
+            <div class="orders-body">
+
+                @if (!CustomerOrders.Any())
+                {
+                    <div class="orders-empty">
+
+                        <span class="bi bi-receipt"></span>
+
+                        <h3>No orders yet</h3>
+
+                        <p>
+                            Your completed orders will appear here.
+                        </p>
+
+                    </div>
+                }
+                else
+                {
+                    @foreach (var order in CustomerOrders)
+                    {
+                        <div class="order-history-item">
+
+                            <div>
+
+                                <strong>
+                                    Order #@order.OrderId.ToString()[..8].ToUpper()
+                                </strong>
+
+                                <span>
+                                    @order.OrderDate.ToLocalTime()
+                                        .ToString("dd MMM yyyy, HH:mm")
+                                </span>
+
+                            </div>
+
+
+                            <div class="order-history-middle">
+
+                                <span class="order-status">
+                                    @order.Status
+                                </span>
+
+                                <span>
+                                    @GetPaymentTypeName(order.PaymentType)
+                                </span>
+
+                            </div>
+
+
+                            <strong class="order-history-total">
+                                K @order.TotalAmount.ToString("N2")
+                            </strong>
+
+                        </div>
+                    }
+                }
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =============================================================
+     SUCCESS MESSAGE
+     ============================================================= -->
+
+@if (!string.IsNullOrWhiteSpace(SuccessMessage))
+{
+    <div class="store-toast success">
+
+        <span class="bi bi-check-circle"></span>
+
+        <span>@SuccessMessage</span>
+
+        <button type="button"
+                @onclick="() => SuccessMessage = null">
+            <span class="bi bi-x"></span>
+        </button>
+
+    </div>
+}
+
+
+@code {
+
+    // =========================================================
+    // DATA
+    // =========================================================
+
+    private List<Product> Products = new();
+    private List<Category> Categories = new();
+    private List<Order> CustomerOrders = new();
+
+    private bool IsLoading;
+
+
+    // =========================================================
+    // AUTHENTICATION
+    // =========================================================
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool IsAuthenticated;
+    private Guid CurrentUserId;
+
+
+    // =========================================================
+    // FILTERS
+    // =========================================================
+
+    private string SearchTerm = string.Empty;
+
+    private Guid? SelectedCategoryId;
+
+    private ProductCondition? SelectedCondition;
+
+    private string SelectedSort = "newest";
+
+
+    // =========================================================
+    // CART
+    // =========================================================
+
+    private List<CartItem> Cart = new();
+
+    private bool ShowCart;
+
+    private int CartCount =>
+        Cart.Sum(x => x.Quantity);
+
+    private decimal CartTotal =>
+        Cart.Sum(x => x.Product.Price * x.Quantity);
+
+
+    // =========================================================
+    // CHECKOUT
+    // =========================================================
+
+    private bool ShowCheckout;
+
+    private bool IsSubmittingOrder;
+
+    private string? CheckoutError;
+
+    private PaymentType SelectedPaymentType =
+        PaymentType.Cash;
+
+
+    // =========================================================
+    // SWAPS
+    // =========================================================
+
+    private bool ShowSwapModal;
+
+    private bool IsSubmittingSwap;
+
+    private string? SwapError;
+
+    private SwapRequestInput SwapModel = new();
+
+
+    // =========================================================
+    // ORDERS
+    // =========================================================
+
+    private bool ShowOrders;
+
+
+    // =========================================================
+    // NOTIFICATIONS
+    // =========================================================
+
+    private string? SuccessMessage;
+
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAuthentication();
+
+        await LoadStoreData();
+
+        if (IsAuthenticated)
+        {
+            await LoadCustomerOrders();
+        }
+    }
+
+
+    // =========================================================
+    // AUTHENTICATION
+    // =========================================================
+
+private async Task LoadAuthentication()
+{
+    IsAuthenticated = false;
+    CurrentUserId = Guid.Empty;
+
+    if (AuthenticationStateTask == null)
+        return;
+
+    var state = await AuthenticationStateTask;
+    var user = state.User;
+
+    if (user.Identity?.IsAuthenticated != true)
+        return;
+
+    var userIdClaim =
+        user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    if (!Guid.TryParse(userIdClaim, out var userId))
+        return;
+
+    CurrentUserId = userId;
+    IsAuthenticated = true;
+}
+
+
+    // =========================================================
+    // DATA LOADING
+    // =========================================================
+
+    private async Task LoadStoreData()
+    {
+        IsLoading = true;
+
+        try
+        {
+            Products = await Db.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.ProductImages)
+                .Where(p => p.Quantity >= 0)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    private async Task LoadCustomerOrders()
+    {
+        CustomerOrders = await Db.Orders
+            .AsNoTracking()
+            .Where(o => o.UserId == CurrentUserId)
+            .OrderByDescending(o => o.OrderDate)
+            .ToListAsync();
+    }
+
+
+    // =========================================================
+    // FILTERING
+    // =========================================================
+
+    private IEnumerable<Product> FilteredProducts
+    {
+        get
+        {
+            IEnumerable<Product> products = Products;
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search =
+                    SearchTerm.Trim();
+
+                products = products.Where(p =>
+                    p.Name.Contains(
+                        search,
+                        StringComparison.OrdinalIgnoreCase)
+
+                    || (!string.IsNullOrWhiteSpace(p.Brand)
+                        && p.Brand.Contains(
+                            search,
+                            StringComparison.OrdinalIgnoreCase))
+
+                    || (!string.IsNullOrWhiteSpace(p.Model)
+                        && p.Model.Contains(
+                            search,
+                            StringComparison.OrdinalIgnoreCase))
+
+                    || (!string.IsNullOrWhiteSpace(p.Description)
+                        && p.Description.Contains(
+                            search,
+                            StringComparison.OrdinalIgnoreCase)));
+            }
+
+
+            if (SelectedCategoryId.HasValue)
+            {
+                products = products.Where(p =>
+                    p.CategoryId ==
+                    SelectedCategoryId.Value);
+            }
+
+
+            if (SelectedCondition.HasValue)
+            {
+                products = products.Where(p =>
+                    p.Condition ==
+                    SelectedCondition.Value);
+            }
+
+
+            products = SelectedSort switch
+            {
+                "price-low" =>
+                    products.OrderBy(p => p.Price),
+
+                "price-high" =>
+                    products.OrderByDescending(p => p.Price),
+
+                "name" =>
+                    products.OrderBy(p => p.Name),
+
+                _ =>
+                    products.OrderByDescending(p => p.CreatedAt)
+            };
+
+
+            return products;
+        }
+    }
+
+
+    // =========================================================
+    // CATEGORY FILTERING
+    // =========================================================
+
+    private void SelectAllCategories()
+    {
+        SelectedCategoryId = null;
+    }
+
+
+    private void SelectCategory(Guid categoryId)
+    {
+        SelectedCategoryId = categoryId;
+    }
+
+
+    private void SelectCondition(ProductCondition? condition)
+    {
+        SelectedCondition = condition;
+    }
+
+
+    private void ClearSearch()
+    {
+        SearchTerm = string.Empty;
+    }
+
+
+    private void ClearAllFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedCategoryId = null;
+        SelectedCondition = null;
+    }
+
+
+    // =========================================================
+    // PRODUCT IMAGE
+    // =========================================================
+
+    private static string? GetPrimaryImage(Product product)
+    {
+        return product.ProductImages
+            .FirstOrDefault(i => i.IsPrimary)
+            ?.ImageUrl
+            ?? product.ProductImages
+                .FirstOrDefault()
+                ?.ImageUrl;
+    }
+
+
+    // =========================================================
+    // CONDITION
+    // =========================================================
+
+    private static string GetConditionDisplayName(
+        ProductCondition condition)
+    {
+        return condition switch
+        {
+            ProductCondition.PreOwned =>
+                "Pre-Owned",
+
+            _ =>
+                condition.ToString()
+        };
+    }
+
+
+    // =========================================================
+    // CART
+    // =========================================================
+
+    private void AddToCart(Product product)
+    {
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+
+        if (product.Quantity <= 0)
+            return;
+
+
+        var existing =
+            Cart.FirstOrDefault(x =>
+                x.Product.ProductId ==
+                product.ProductId);
+
+
+        if (existing != null)
+        {
+            if (existing.Quantity < product.Quantity)
+            {
+                existing.Quantity++;
+            }
+        }
+        else
+        {
+            Cart.Add(new CartItem
+            {
+                Product = product,
+                Quantity = 1
+            });
+        }
+    }
+
+
+    private bool IsInCart(Guid productId)
+    {
+        return Cart.Any(x =>
+            x.Product.ProductId == productId);
+    }
+
+
+    private void IncreaseQuantity(CartItem item)
+    {
+        if (item.Quantity >= item.Product.Quantity)
+            return;
+
+        item.Quantity++;
+    }
+
+
+    private void DecreaseQuantity(CartItem item)
+    {
+        if (item.Quantity <= 1)
+        {
+            Cart.Remove(item);
+            return;
+        }
+
+        item.Quantity--;
+    }
+
+
+    private void RemoveFromCart(CartItem item)
+    {
+        Cart.Remove(item);
+    }
+
+
+    // =========================================================
+    // CART UI
+    // =========================================================
+
+    private void OpenCart()
+    {
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+        ShowCart = true;
+    }
+
+
+    private void CloseCart()
+    {
+        ShowCart = false;
+    }
+
+
+    // =========================================================
+    // CHECKOUT
+    // =========================================================
+
+    private void OpenCheckout()
+    {
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+
+        if (!Cart.Any())
+            return;
+
+
+        CheckoutError = null;
+
+        ShowCart = false;
+
+        ShowCheckout = true;
+    }
+
+
+    private void CloseCheckout()
+    {
+        if (IsSubmittingOrder)
+            return;
+
+        ShowCheckout = false;
+
+        CheckoutError = null;
+    }
+
+
+    private async Task SubmitOrder()
+    {
+        if (IsSubmittingOrder)
+            return;
+
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+
+        if (!Cart.Any())
+        {
+            CheckoutError =
+                "Your cart is empty.";
+
+            return;
+        }
+
+
+        IsSubmittingOrder = true;
+
+        CheckoutError = null;
+
+
+        try
+        {
+            // -------------------------------------------------
+            // RELOAD PRODUCTS
+            // This prevents stale stock from being ordered.
+            // -------------------------------------------------
+
+            var productIds =
+                Cart.Select(x => x.Product.ProductId)
+                    .ToList();
+
+
+            var databaseProducts =
+                await Db.Products
+                    .Where(p =>
+                        productIds.Contains(p.ProductId))
+                    .ToDictionaryAsync(
+                        p => p.ProductId);
+
+
+            // -------------------------------------------------
+            // VALIDATE STOCK
+            // -------------------------------------------------
+
+            foreach (var item in Cart)
+            {
+                if (!databaseProducts.TryGetValue(
+                        item.Product.ProductId,
+                        out var databaseProduct))
+                {
+                    CheckoutError =
+                        $"{item.Product.Name} is no longer available.";
+
+                    return;
+                }
+
+
+                if (databaseProduct.Quantity < item.Quantity)
+                {
+                    CheckoutError =
+                        $"There are only {databaseProduct.Quantity} " +
+                        $"unit(s) of {databaseProduct.Name} available.";
+
+                    return;
+                }
+            }
+
+
+            // -------------------------------------------------
+            // CALCULATE TOTAL FROM DATABASE PRICES
+            // -------------------------------------------------
+
+            decimal total = 0;
+
+
+            foreach (var item in Cart)
+            {
+                var databaseProduct =
+                    databaseProducts[item.Product.ProductId];
+
+                total +=
+                    databaseProduct.Price *
+                    item.Quantity;
+            }
+
+
+            // -------------------------------------------------
+            // CREATE ORDER
+            // -------------------------------------------------
+
+            var order = new Order
+            {
+                OrderId = Guid.NewGuid(),
+
+                UserId = CurrentUserId,
+
+                OrderDate = DateTime.UtcNow,
+
+                Status = OrderStatus.Pending,
+
+                PaymentType = SelectedPaymentType,
+
+                TotalAmount = total
+            };
+
+
+            foreach (var item in Cart)
+            {
+                var databaseProduct =
+                    databaseProducts[item.Product.ProductId];
+
+
+                order.OrderItems.Add(
+                    new OrderItem
+                    {
+                        OrderItemId = Guid.NewGuid(),
+
+                        OrderId = order.OrderId,
+
+                        ProductId =
+                            databaseProduct.ProductId,
+
+                        Quantity = item.Quantity,
+
+                        Price = databaseProduct.Price
+                    });
+
+
+                databaseProduct.Quantity -=
+                    item.Quantity;
+            }
+
+
+            Db.Orders.Add(order);
+
+
+            // -------------------------------------------------
+            // CREATE PAYMENT RECORD
+            //
+            // This records the selected payment method.
+            // It does NOT process an actual payment.
+            // -------------------------------------------------
+
+            Db.Payments.Add(
+                new Payment
+                {
+                    PaymentId = Guid.NewGuid(),
+
+                    OrderId = order.OrderId,
+
+                    Amount = total,
+
+                    PaymentType =
+                        SelectedPaymentType,
+
+                    PaymentStatus =
+                        PaymentStatus.Pending,
+
+                    PaymentDate =
+                        DateTime.UtcNow
+                });
+
+
+            await Db.SaveChangesAsync();
+
+
+            // -------------------------------------------------
+            // REFRESH STORE
+            // -------------------------------------------------
+
+            Cart.Clear();
+
+            await LoadStoreData();
+
+            await LoadCustomerOrders();
+
+
+            ShowCheckout = false;
+
+            SuccessMessage =
+                $"Order #{order.OrderId.ToString()[..8].ToUpper()} " +
+                "was submitted successfully.";
+
+        }
+        catch (DbUpdateException)
+        {
+            CheckoutError =
+                "The order could not be saved. " +
+                "Please try again.";
+        }
+        catch (Exception)
+        {
+            CheckoutError =
+                "Something went wrong while submitting " +
+                "your order.";
+        }
+        finally
+        {
+            IsSubmittingOrder = false;
+        }
+    }
+
+
+    // =========================================================
+    // ORDERS
+    // =========================================================
+
+    private void OpenOrders()
+    {
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+        ShowOrders = true;
+    }
+
+
+    private void CloseOrders()
+    {
+        ShowOrders = false;
+    }
+
+
+    // =========================================================
+    // SWAP REQUEST
+    // =========================================================
+
+    private void OpenSwapModal()
+    {
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+
+        SwapError = null;
+
+        SwapModel = new SwapRequestInput();
+
+        ShowSwapModal = true;
+    }
+
+
+    private void CloseSwapModal()
+    {
+        if (IsSubmittingSwap)
+            return;
+
+        ShowSwapModal = false;
+
+        SwapError = null;
+    }
+
+
+    private async Task SubmitSwapRequest()
+    {
+        if (IsSubmittingSwap)
+            return;
+
+
+        if (!IsAuthenticated)
+        {
+            GoToLogin();
+            return;
+        }
+
+
+        SwapError = ValidateSwap();
+
+
+        if (!string.IsNullOrWhiteSpace(SwapError))
+            return;
+
+
+        IsSubmittingSwap = true;
+
+
+        try
+        {
+            var request = new SwapRequest
+            {
+                SwapRequestId = Guid.NewGuid(),
+
+                UserId = CurrentUserId,
+
+                CurrentDeviceBrand =
+                    SwapModel.CurrentDeviceBrand.Trim(),
+
+                CurrentDeviceModel =
+                    SwapModel.CurrentDeviceModel.Trim(),
+
+                DeviceCondition =
+                    SwapModel.DeviceCondition.Trim(),
+
+                FaultDescription =
+                    string.IsNullOrWhiteSpace(
+                        SwapModel.FaultDescription)
+                        ? null
+                        : SwapModel.FaultDescription.Trim(),
+
+                DesiredDevice =
+                    SwapModel.DesiredDevice.Trim(),
+
+                EstimatedTopUpAmount =
+                    SwapModel.EstimatedTopUpAmount,
+
+                Status =
+                    SwapRequestStatus.Pending,
+
+                CreatedAt =
+                    DateTime.UtcNow
+            };
+
+
+            Db.SwapRequests.Add(request);
+
+            await Db.SaveChangesAsync();
+
+
+            ShowSwapModal = false;
+
+            SuccessMessage =
+                $"Swap request #{request.SwapRequestId.ToString()[..8].ToUpper()} " +
+                "was submitted successfully.";
+
+        }
+        catch (DbUpdateException)
+        {
+            SwapError =
+                "The swap request could not be saved. " +
+                "Please try again.";
+        }
+        catch (Exception)
+        {
+            SwapError =
+                "Something went wrong while submitting " +
+                "your swap request.";
+        }
+        finally
+        {
+            IsSubmittingSwap = false;
+        }
+    }
+
+
+    private string? ValidateSwap()
+    {
+        if (string.IsNullOrWhiteSpace(
+                SwapModel.CurrentDeviceBrand))
+            return "Please enter your current device brand.";
+
+        if (string.IsNullOrWhiteSpace(
+                SwapModel.CurrentDeviceModel))
+            return "Please enter your current device model.";
+
+        if (string.IsNullOrWhiteSpace(
+                SwapModel.DeviceCondition))
+            return "Please describe the condition of your device.";
+
+        if (string.IsNullOrWhiteSpace(
+                SwapModel.DesiredDevice))
+            return "Please enter the device you want.";
+
+        if (SwapModel.EstimatedTopUpAmount < 0)
+            return "The top-up amount cannot be negative.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // PAYMENT DISPLAY
+    // =========================================================
+
+    private static string GetPaymentTypeName(
+        PaymentType paymentType)
+    {
+        return paymentType switch
+        {
+            PaymentType.Cash =>
+                "Cash",
+
+            PaymentType.Layby =>
+                "Layby",
+
+            PaymentType.HirePurchase =>
+                "Hire Purchase",
+
+            _ =>
+                paymentType.ToString()
+        };
+    }
+
+
+    private static string GetPaymentDescription(
+        PaymentType paymentType)
+    {
+        return paymentType switch
+        {
+            PaymentType.Cash =>
+                "Pay the full amount in cash.",
+
+            PaymentType.Layby =>
+                "Reserve the product and pay according to the layby arrangement.",
+
+            PaymentType.HirePurchase =>
+                "Purchase through an approved hire-purchase arrangement.",
+
+            _ =>
+                string.Empty
+        };
+    }
+
+
+    // =========================================================
+    // NAVIGATION
+    // =========================================================
+
+    private void GoToLogin()
+    {
+        NavigationManager.NavigateTo(
+            "/login?returnUrl=/store");
+    }
+
+
+    private async Task ScrollToProducts()
+    {
+        await Task.CompletedTask;
+    }
+
+
+    // =========================================================
+    // MODELS
+    // =========================================================
+
+    private sealed class CartItem
+    {
+        public Product Product { get; set; } = null!;
+
+        public int Quantity { get; set; }
+    }
+
+
+    private sealed class SwapRequestInput
+    {
+        public string CurrentDeviceBrand { get; set; } = string.Empty;
+
+        public string CurrentDeviceModel { get; set; } = string.Empty;
+
+        public string DeviceCondition { get; set; } = string.Empty;
+
+        public string? FaultDescription { get; set; }
+
+        public string DesiredDevice { get; set; } = string.Empty;
+
+        public decimal EstimatedTopUpAmount { get; set; }
+    }
+}

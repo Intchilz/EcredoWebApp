@@ -55,12 +55,6 @@ using Microsoft.AspNetCore.Components.Web.Virtualization
 #nullable disable
     ;
 #nullable restore
-#line (8,2)-(8,27) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\_Imports.razor"
-using Microsoft.JSInterop
-
-#nullable disable
-    ;
-#nullable restore
 #line (9,2)-(9,20) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\_Imports.razor"
 using EcredoWebApp
 
@@ -75,6 +69,36 @@ using EcredoWebApp.Components
 #nullable restore
 #line (11,2)-(11,38) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\_Imports.razor"
 using EcredoWebApp.Components.Layout
+
+#nullable disable
+    ;
+#nullable restore
+#line (4,2)-(4,25) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+using EcredoWebApp.Data
+
+#nullable disable
+    ;
+#nullable restore
+#line (5,2)-(5,26) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+using EcredoWebApp.Enums
+
+#nullable disable
+    ;
+#nullable restore
+#line (6,2)-(6,27) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+using EcredoWebApp.Models
+
+#nullable disable
+    ;
+#nullable restore
+#line (7,2)-(7,37) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+using Microsoft.EntityFrameworkCore
+
+#nullable disable
+    ;
+#nullable restore
+#line (8,2)-(8,27) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+using Microsoft.JSInterop
 
 #nullable disable
     ;
@@ -101,19 +125,923 @@ using EcredoWebApp.Components.Layout
         }
         #pragma warning restore 1998
 #nullable restore
-#line (8,8)-(15,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+#line (1382,8)-(2257,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
 
-    private int currentCount = 0;
 
-    private void IncrementCount()
+    private List<Product> ProductList = new();
+    private List<Category> Categories = new();
+
+    private bool IsLoading = true;
+    private bool ShowProductModal;
+    private bool ShowDeleteModal;
+    private bool ShowInlineCategoryModal;
+    private bool ShowCategoryManagement;
+    private bool ShowDeleteCategoryModal;
+    private bool IsSaving;
+    private bool IsDeleting;
+    private bool IsCategorySaving;
+    private bool IsCategoryDeleting;
+
+    private Product? EditingProduct;
+    private Product? ProductToDelete;
+
+    private string SearchTerm = string.Empty;
+    private string SelectedCategory = string.Empty;
+    private string SelectedCondition = string.Empty;
+    private string InlineCategoryName = string.Empty;
+    private string? InlineCategoryValidationMessage;
+    private string NewCategoryName = string.Empty;
+    private string NewCategoryDescription = string.Empty;
+    private string? CategoryValidationMessage;
+
+    private string ImageUrl = string.Empty;
+
+    private string? StatusMessage;
+    private string? ValidationMessage;
+
+    private bool IsError;
+
+    private Category? CategoryToDelete;
+
+    private bool IsCategoryDeleteConfirmed;
+
+    private bool IsEditing =>
+        EditingProduct != null &&
+        EditingProduct.ProductId != Guid.Empty;
+
+
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await LoadProducts();
     }
+
+
+    // =========================================================
+    // DATA LOADING
+    // =========================================================
+
+    private async Task LoadProducts()
+    {
+        IsLoading = true;
+
+        try
+        {
+            ProductList = await Db.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.ProductImages)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Unable to load products. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    // =========================================================
+    // FILTERING
+    // =========================================================
+
+    private IEnumerable<Product> FilteredProducts
+    {
+        get
+        {
+            var products = ProductList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                products = products.Where(p =>
+                    p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(p.Brand) &&
+                     p.Brand.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(p.Model) &&
+                     p.Model.Contains(search, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (Guid.TryParse(SelectedCategory, out var categoryId))
+            {
+                products = products.Where(p =>
+                    p.CategoryId == categoryId);
+            }
+
+            if (Enum.TryParse<ProductCondition>(
+                    SelectedCondition,
+                    out var condition))
+            {
+                products = products.Where(p =>
+                    p.Condition == condition);
+            }
+
+            return products;
+        }
+    }
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
+    private int TotalProducts =>
+        ProductList.Count;
+
+
+    private int InStockProducts =>
+        ProductList.Count(p => p.Quantity > 0);
+
+
+    private int LowStockProducts =>
+        ProductList.Count(p =>
+            p.Quantity > 0 &&
+            p.Quantity <= 5);
+
+
+    private decimal InventoryValue =>
+        ProductList.Sum(p => p.Price * p.Quantity);
+
+
+    // =========================================================
+    // FILTER CONTROLS
+    // =========================================================
+
+    private void ClearFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedCategory = string.Empty;
+        SelectedCondition = string.Empty;
+    }
+
+
+    // =========================================================
+    // CATEGORY MANAGEMENT
+    // =========================================================
+
+    private void OpenInlineCategoryModal()
+    {
+        InlineCategoryValidationMessage = null;
+        InlineCategoryName = string.Empty;
+        ShowInlineCategoryModal = true;
+    }
+
+    private void CloseInlineCategoryModal()
+    {
+        if (IsSaving)
+            return;
+
+        ShowInlineCategoryModal = false;
+        InlineCategoryValidationMessage = null;
+        InlineCategoryName = string.Empty;
+    }
+
+    private async Task SaveInlineCategory()
+    {
+        if (string.IsNullOrWhiteSpace(InlineCategoryName))
+        {
+            InlineCategoryValidationMessage = "Category name is required.";
+            return;
+        }
+
+        var trimmedName = InlineCategoryName.Trim();
+
+        if (trimmedName.Length > 100)
+        {
+            InlineCategoryValidationMessage = "Category name cannot exceed 100 characters.";
+            return;
+        }
+
+        if (await Db.Categories.AnyAsync(c => c.Name == trimmedName))
+        {
+            InlineCategoryValidationMessage = "A category with that name already exists.";
+            return;
+        }
+
+        var newCategory = new Category
+        {
+            CategoryId = Guid.NewGuid(),
+            Name = trimmedName,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        Db.Categories.Add(newCategory);
+        await Db.SaveChangesAsync();
+
+        Categories = await Db.Categories
+            .AsNoTracking()
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+
+        EditingProduct!.CategoryId = newCategory.CategoryId;
+
+        CloseInlineCategoryModal();
+
+        SetStatusMessage(
+            $"{newCategory.Name} was successfully added.",
+            false);
+    }
+
+    private void OpenCategoryManagement()
+    {
+        ClearStatusMessage();
+        CategoryValidationMessage = null;
+        NewCategoryName = string.Empty;
+        NewCategoryDescription = string.Empty;
+        ShowCategoryManagement = true;
+    }
+
+    private void CloseCategoryManagement()
+    {
+        if (IsCategorySaving)
+            return;
+
+        ShowCategoryManagement = false;
+        CategoryValidationMessage = null;
+        NewCategoryName = string.Empty;
+        NewCategoryDescription = string.Empty;
+    }
+
+    private async Task CreateCategory()
+    {
+        if (IsCategorySaving)
+            return;
+
+        if (string.IsNullOrWhiteSpace(NewCategoryName))
+        {
+            CategoryValidationMessage = "Category name is required.";
+            return;
+        }
+
+        var trimmedName = NewCategoryName.Trim();
+
+        if (trimmedName.Length > 100)
+        {
+            CategoryValidationMessage = "Category name cannot exceed 100 characters.";
+            return;
+        }
+
+        if (await Db.Categories.AnyAsync(c => c.Name == trimmedName))
+        {
+            CategoryValidationMessage = "A category with that name already exists.";
+            return;
+        }
+
+        IsCategorySaving = true;
+
+        try
+        {
+            var category = new Category
+            {
+                CategoryId = Guid.NewGuid(),
+                Name = trimmedName,
+                Description = string.IsNullOrWhiteSpace(NewCategoryDescription)
+                    ? null
+                    : NewCategoryDescription.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            Db.Categories.Add(category);
+            await Db.SaveChangesAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            NewCategoryName = string.Empty;
+            NewCategoryDescription = string.Empty;
+            CategoryValidationMessage = null;
+
+            SetStatusMessage(
+                $"{category.Name} was successfully added.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            CategoryValidationMessage = "The category could not be created because of a database constraint.";
+        }
+        catch (Exception)
+        {
+            CategoryValidationMessage = "Something went wrong while creating the category.";
+        }
+        finally
+        {
+            IsCategorySaving = false;
+        }
+    }
+
+    private async Task CreateCategoryFromProduct()
+    {
+        if (IsCategorySaving)
+            return;
+
+        if (string.IsNullOrWhiteSpace(NewCategoryName))
+        {
+            CategoryValidationMessage = "Category name is required.";
+            return;
+        }
+
+        var trimmedName = NewCategoryName.Trim();
+
+        if (trimmedName.Length > 100)
+        {
+            CategoryValidationMessage = "Category name cannot exceed 100 characters.";
+            return;
+        }
+
+        if (await Db.Categories.AnyAsync(c => c.Name == trimmedName))
+        {
+            CategoryValidationMessage = "A category with that name already exists.";
+            return;
+        }
+
+        IsCategorySaving = true;
+
+        try
+        {
+            var category = new Category
+            {
+                CategoryId = Guid.NewGuid(),
+                Name = trimmedName,
+                Description = string.IsNullOrWhiteSpace(NewCategoryDescription)
+                    ? null
+                    : NewCategoryDescription.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            Db.Categories.Add(category);
+            await Db.SaveChangesAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            if (EditingProduct != null)
+            {
+                EditingProduct.CategoryId = category.CategoryId;
+            }
+
+            NewCategoryName = string.Empty;
+            NewCategoryDescription = string.Empty;
+            CategoryValidationMessage = null;
+            ShowInlineCategoryModal = false;
+
+            SetStatusMessage(
+                $"{category.Name} was successfully added.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            CategoryValidationMessage = "The category could not be created because of a database constraint.";
+        }
+        catch (Exception)
+        {
+            CategoryValidationMessage = "Something went wrong while creating the category.";
+        }
+        finally
+        {
+            IsCategorySaving = false;
+        }
+    }
+
+    private async Task ConfirmDeleteCategory(Category category)
+    {
+        if (IsCategorySaving)
+            return;
+
+        CategoryToDelete = category;
+        ShowDeleteCategoryModal = true;
+    }
+
+    private void CloseDeleteCategoryModal()
+    {
+        if (IsCategoryDeleting)
+            return;
+
+        ShowDeleteCategoryModal = false;
+        CategoryToDelete = null;
+        CategoryValidationMessage = null;
+    }
+
+    private async Task DeleteCategory()
+    {
+        if (CategoryToDelete == null)
+            return;
+
+        if (IsCategoryDeleting)
+            return;
+
+        IsCategoryDeleting = true;
+
+        try
+        {
+            var category = CategoryToDelete;
+            var hasProducts = await Db.Products.AnyAsync(p => p.CategoryId == category.CategoryId);
+
+            if (hasProducts)
+            {
+                CategoryValidationMessage = $"'{category.Name}' cannot be deleted because it is currently assigned to products.";
+                SetStatusMessage(
+                    $"'{category.Name}' cannot be deleted because it is currently assigned to products.",
+                    true);
+                return;
+            }
+
+            Db.Categories.Remove(category);
+            await Db.SaveChangesAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            ShowDeleteCategoryModal = false;
+            CategoryValidationMessage = null;
+            SetStatusMessage(
+                $"{category.Name} was successfully deleted.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            CategoryValidationMessage = "The category could not be deleted because of a database constraint.";
+            SetStatusMessage(
+                "The category could not be deleted because of a database constraint.",
+                true);
+        }
+        catch (Exception)
+        {
+            CategoryValidationMessage = "Something went wrong while deleting the category.";
+            SetStatusMessage(
+                "Something went wrong while deleting the category.",
+                true);
+        }
+        finally
+        {
+            IsCategoryDeleting = false;
+            CategoryToDelete = null;
+        }
+    }
+
+    private int GetCategoryProductCount(Guid categoryId)
+    {
+        return ProductList.Count(p => p.CategoryId == categoryId);
+    }
+
+
+    // =========================================================
+    // ADD PRODUCT
+    // =========================================================
+
+    private void OpenAddProduct()
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+        ImageUrl = string.Empty;
+
+        EditingProduct = new Product
+        {
+            ProductId = Guid.Empty,
+            CategoryId = Categories.FirstOrDefault()?.CategoryId ?? Guid.Empty,
+            Condition = Enum.GetValues<ProductCondition>().FirstOrDefault()
+        };
+
+        ShowProductModal = true;
+    }
+
+
+    // =========================================================
+    // EDIT PRODUCT
+    // =========================================================
+
+    private void EditProduct(Product product)
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+
+        EditingProduct = new Product
+        {
+            ProductId = product.ProductId,
+            CategoryId = product.CategoryId,
+            Name = product.Name,
+            Brand = product.Brand,
+            Model = product.Model,
+            Description = product.Description,
+            Price = product.Price,
+            Quantity = product.Quantity,
+            Condition = product.Condition,
+            CreatedAt = product.CreatedAt
+        };
+
+        ImageUrl = GetPrimaryImage(product) ?? string.Empty;
+
+        ShowProductModal = true;
+    }
+
+
+    // =========================================================
+    // CLOSE PRODUCT MODAL
+    // =========================================================
+
+    private void CloseProductModal()
+    {
+        if (IsSaving)
+            return;
+
+        ShowProductModal = false;
+        EditingProduct = null;
+        ValidationMessage = null;
+        ImageUrl = string.Empty;
+    }
+
+
+    private void HandleBackdropClick()
+    {
+        if (!IsSaving)
+        {
+            CloseProductModal();
+        }
+    }
+
+
+    // =========================================================
+    // SAVE PRODUCT
+    // =========================================================
+
+    private async Task SaveProduct()
+    {
+        if (EditingProduct == null)
+            return;
+
+        ValidationMessage = ValidateProduct();
+
+        if (!string.IsNullOrWhiteSpace(ValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            if (EditingProduct.ProductId == Guid.Empty)
+            {
+                EditingProduct.ProductId = Guid.NewGuid();
+                EditingProduct.CreatedAt = DateTime.UtcNow;
+
+                Db.Products.Add(EditingProduct);
+
+                await Db.SaveChangesAsync();
+
+                if (!string.IsNullOrWhiteSpace(ImageUrl))
+                {
+                    Db.ProductImages.Add(new ProductImage
+                    {
+                        ProductId = EditingProduct.ProductId,
+                        ImageUrl = ImageUrl.Trim(),
+                        IsPrimary = true,
+                        UploadedAt = DateTime.UtcNow
+                    });
+
+                    await Db.SaveChangesAsync();
+                }
+
+                CloseProductModal();
+
+                SetStatusMessage(
+                    $"{EditingProduct.Name} was successfully added.",
+                    false);
+            }
+            else
+            {
+                var existingProduct = await Db.Products
+                    .Include(p => p.ProductImages)
+                    .FirstOrDefaultAsync(p =>
+                        p.ProductId == EditingProduct.ProductId);
+
+                if (existingProduct == null)
+                {
+                    SetStatusMessage(
+                        "The product could not be found.",
+                        true);
+
+                    return;
+                }
+
+                existingProduct.CategoryId = EditingProduct.CategoryId;
+                existingProduct.Name = EditingProduct.Name.Trim();
+                existingProduct.Brand = EditingProduct.Brand?.Trim();
+                existingProduct.Model = EditingProduct.Model?.Trim();
+                existingProduct.Description = EditingProduct.Description?.Trim();
+                existingProduct.Price = EditingProduct.Price;
+                existingProduct.Quantity = EditingProduct.Quantity;
+                existingProduct.Condition = EditingProduct.Condition;
+
+                var primaryImage = existingProduct.ProductImages
+                    .FirstOrDefault(i => i.IsPrimary);
+
+                if (!string.IsNullOrWhiteSpace(ImageUrl))
+                {
+                    if (primaryImage == null)
+                    {
+                        Db.ProductImages.Add(new ProductImage
+                        {
+                            ProductId = existingProduct.ProductId,
+                            ImageUrl = ImageUrl.Trim(),
+                            IsPrimary = true,
+                            UploadedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        primaryImage.ImageUrl = ImageUrl.Trim();
+                    }
+                }
+
+                await Db.SaveChangesAsync();
+
+                var productName = existingProduct.Name;
+
+                CloseProductModal();
+
+                SetStatusMessage(
+                    $"{productName} was successfully updated.",
+                    false);
+            }
+
+            await LoadProducts();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The product could not be saved because of a database constraint. Please check the product information and try again.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while saving the product. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // VALIDATION
+    // =========================================================
+
+    private string? ValidateProduct()
+    {
+        if (string.IsNullOrWhiteSpace(EditingProduct?.Name))
+            return "Product name is required.";
+
+        if (EditingProduct.Name.Trim().Length > 200)
+            return "Product name cannot exceed 200 characters.";
+
+        if (EditingProduct.CategoryId == Guid.Empty)
+            return "Please select a product category.";
+
+        if (EditingProduct.Price < 0)
+            return "Product price cannot be negative.";
+
+        if (EditingProduct.Quantity < 0)
+            return "Product quantity cannot be negative.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // DELETE
+    // =========================================================
+
+    private void ConfirmDelete(Product product)
+    {
+        ProductToDelete = product;
+        ShowDeleteModal = true;
+    }
+
+
+    private void CloseDeleteModal()
+    {
+        if (IsDeleting)
+            return;
+
+        ShowDeleteModal = false;
+        ProductToDelete = null;
+    }
+
+
+    private async Task DeleteProduct()
+    {
+        if (ProductToDelete == null)
+            return;
+
+        IsDeleting = true;
+
+        var productName = ProductToDelete.Name;
+
+        try
+        {
+            var existingProduct = await Db.Products
+                .FirstOrDefaultAsync(p =>
+                    p.ProductId == ProductToDelete.ProductId);
+
+            if (existingProduct == null)
+            {
+                SetStatusMessage(
+                    "The product could not be found.",
+                    true);
+
+                return;
+            }
+
+            var hasOrders = await Db.OrderItems
+                .AnyAsync(oi =>
+                    oi.ProductId == ProductToDelete.ProductId);
+
+            if (hasOrders)
+            {
+                SetStatusMessage(
+                    $"'{productName}' cannot be deleted because it is already associated with an order. Consider reducing its stock to zero instead.",
+                    true);
+
+                return;
+            }
+
+            Db.Products.Remove(existingProduct);
+
+            await Db.SaveChangesAsync();
+
+            ShowDeleteModal = false;
+            ProductToDelete = null;
+
+            SetStatusMessage(
+                $"{productName} was successfully deleted.",
+                false);
+
+            await LoadProducts();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                $"'{productName}' could not be deleted because it is being used elsewhere in the system.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while deleting the product.",
+                true);
+        }
+        finally
+        {
+            IsDeleting = false;
+        }
+    }
+
+
+    // =========================================================
+    // PRODUCT IMAGES
+    // =========================================================
+
+    private static string? GetPrimaryImage(Product product)
+    {
+        return product.ProductImages
+            .FirstOrDefault(i => i.IsPrimary)?.ImageUrl
+            ?? product.ProductImages.FirstOrDefault()?.ImageUrl;
+    }
+
+
+    // =========================================================
+    // CONDITION
+    // =========================================================
+
+    private static string GetConditionClass(ProductCondition condition)
+    {
+        return condition switch
+        {
+            ProductCondition.New => "condition-new",
+            ProductCondition.PreOwned => "condition-used",
+            _ => "condition-other"
+        };
+    }
+
+
+    private static string GetConditionDisplayName(ProductCondition condition)
+    {
+        return condition switch
+        {
+            ProductCondition.PreOwned => "Pre-Owned",
+            _ => condition.ToString()
+        };
+    }
+
+
+    // =========================================================
+    // STOCK
+    // =========================================================
+
+    private static string GetStockClass(int quantity)
+    {
+        if (quantity == 0)
+            return "stock-out";
+
+        if (quantity <= 5)
+            return "stock-low";
+
+        return "stock-good";
+    }
+
+
+    private static string GetStockLabel(int quantity)
+    {
+        if (quantity == 0)
+            return "Out of stock";
+
+        if (quantity <= 5)
+            return "Low stock";
+
+        return "In stock";
+    }
+
+
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
+
+    private void SetStatusMessage(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+        IsError = error;
+    }
+
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = null;
+        IsError = false;
+    }
+
 
 #line default
 #line hidden
 #nullable disable
 
+        [global::Microsoft.AspNetCore.Components.InjectAttribute] private 
+#nullable restore
+#line (11,9)-(11,19) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+IJSRuntime
+
+#line default
+#line hidden
+#nullable disable
+         
+#nullable restore
+#line (11,20)-(11,22) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+JS
+
+#line default
+#line hidden
+#nullable disable
+         { get; set; }
+         = default!;
+        [global::Microsoft.AspNetCore.Components.InjectAttribute] private 
+#nullable restore
+#line (10,9)-(10,29) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+ApplicationDbContext
+
+#line default
+#line hidden
+#nullable disable
+         
+#nullable restore
+#line (10,30)-(10,32) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Products.razor"
+Db
+
+#line default
+#line hidden
+#nullable disable
+         { get; set; }
+         = default!;
         private sealed class __PrivateComponentRenderModeAttribute : global::Microsoft.AspNetCore.Components.RenderModeAttribute
         {
             private static global::Microsoft.AspNetCore.Components.IComponentRenderMode ModeImpl => InteractiveServer

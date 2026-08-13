@@ -1,7 +1,7 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">
-            <img src="images/logo.png" alt="EcredoWebApp Logo" class="logo" />
+        <a class="navbar-brand" href="/dashboard">
+            <img src="images/logo-home.png" alt="EcredoWebApp Logo" class="logo" />
         </a>
     </div>
 </div>
@@ -11,7 +11,7 @@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
             </NavLink>
         </div>
@@ -65,11 +65,12 @@
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="logout">
-                <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span>
-                Logout
-            </NavLink>
+        <div class="nav-item px-3" >
+            <form method="post"  action="/account/logout" onsubmit="return confirm('Are you sure you want to sign out?');">
+                <button type="submit" class="logout-button">
+                    Sign Out
+                </button>
+            </form>
         </div>
     </nav>
 </div>

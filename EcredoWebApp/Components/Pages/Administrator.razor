@@ -1,15 +1,1199 @@
 @page "/administrator"
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
 
-<PageTitle>Admin</PageTitle>
+@using EcredoWebApp.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 
-<h1>Administrator Content Here</h1>
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole<Guid>> RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Administrator</PageTitle>
+
+<div class="admin-page">
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="page-header">
+
+        <div class="page-heading">
+
+            <div class="heading-icon">
+                <span class="bi bi-shield-lock" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Administrator</h1>
+                <p>Manage system users, administrator access and account status.</p>
+            </div>
+
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="OpenCreateAdmin"
+                disabled="@IsSaving">
+
+            <span class="bi bi-person-plus" aria-hidden="true"></span>
+            Create Administrator
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         STATUS MESSAGE
+         ===================================================== -->
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert-message @(IsError ? "alert-error" : "alert-success")">
+
+            <span class="bi @(IsError
+                ? "bi-exclamation-circle"
+                : "bi-check-circle")"
+                  aria-hidden="true"></span>
+
+            <span>@StatusMessage</span>
+
+            <button type="button"
+                    class="alert-close"
+                    @onclick="ClearStatus">
+
+                <span class="bi bi-x-lg" aria-hidden="true"></span>
+
+            </button>
+
+        </div>
+    }
+
+
+    <!-- =====================================================
+         STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-people" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Total Users</span>
+                <strong>@Users.Count</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-person-check" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Active Users</span>
+                <strong>@Users.Count(u => u.IsActive)</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-primary">
+                <span class="bi bi-shield-check" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Administrators</span>
+                <strong>@Users.Count(u => u.IsAdministrator)</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-person-x" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Inactive Users</span>
+                <strong>@Users.Count(u => !u.IsActive)</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         SEARCH
+         ===================================================== -->
+
+    <div class="filter-card">
+
+        <div class="search-box">
+
+            <span class="bi bi-search" aria-hidden="true"></span>
+
+            <input type="text"
+                   placeholder="Search users by name or email..."
+                   @bind="SearchTerm"
+                   @bind:event="oninput" />
+
+        </div>
+
+        <button class="clear-filters"
+                @onclick="ClearSearch">
+
+            <span class="bi bi-x-circle" aria-hidden="true"></span>
+            Clear Search
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         USERS PANEL
+         ===================================================== -->
+
+    <div class="users-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>System Users</h2>
+
+                <span>
+                    Showing @FilteredUsers.Count() of @Users.Count users
+                </span>
+            </div>
+
+        </div>
+
+
+        @if (IsLoading)
+        {
+            <div class="loading-state">
+
+                <span class="spinner-border" aria-hidden="true"></span>
+
+                <p>Loading users...</p>
+
+            </div>
+        }
+        else if (!FilteredUsers.Any())
+        {
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <span class="bi bi-people" aria-hidden="true"></span>
+                </div>
+
+                <h3>No users found</h3>
+
+                <p>
+                    No users match your current search.
+                </p>
+
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+
+                <table class="users-table">
+
+                    <thead>
+
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (var user in FilteredUsers)
+                        {
+                            <tr>
+
+                                <!-- USER -->
+
+                                <td>
+
+                                    <div class="user-cell">
+
+                                        <div class="user-avatar">
+
+                                            @GetInitials(user)
+
+                                        </div>
+
+                                        <div class="user-details">
+
+                                            <strong>
+                                                @GetDisplayName(user)
+                                            </strong>
+
+                                            @if (user.UserId == CurrentUserId)
+                                            {
+                                                <span class="current-user">
+                                                    You
+                                                </span>
+                                            }
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- EMAIL -->
+
+                                <td>
+                                    <span class="email-text">
+                                        @user.Email
+                                    </span>
+                                </td>
+
+
+                                <!-- ROLE -->
+
+                                <td>
+
+                                    @if (user.IsAdministrator)
+                                    {
+                                        <span class="role-badge role-admin">
+
+                                            <span class="bi bi-shield-check"
+                                                  aria-hidden="true"></span>
+
+                                            Administrator
+
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="role-badge role-user">
+
+                                            <span class="bi bi-person"
+                                                  aria-hidden="true"></span>
+
+                                            User
+
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <!-- STATUS -->
+
+                                <td>
+
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="status-badge status-active">
+                                            Active
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-inactive">
+                                            Inactive
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <!-- ACTIONS -->
+
+                                <td>
+
+                                    <div class="action-buttons">
+
+                                        @if (user.UserId != CurrentUserId)
+                                        {
+                                            <button class="icon-button"
+                                                    title="@(user.IsActive
+                                                        ? "Deactivate user"
+                                                        : "Activate user")"
+                                                    @onclick="() => ToggleUserStatus(user)">
+
+                                                <span class="bi @(user.IsActive
+                                                    ? "bi-person-x"
+                                                    : "bi-person-check")"
+                                                      aria-hidden="true"></span>
+
+                                            </button>
+
+
+                                            <button class="icon-button"
+                                                    title="@(user.IsAdministrator
+                                                        ? "Remove administrator privileges"
+                                                        : "Make administrator")"
+                                                    @onclick="() => ToggleAdministrator(user)">
+
+                                                <span class="bi @(user.IsAdministrator
+                                                    ? "bi-shield-minus"
+                                                    : "bi-shield-plus")"
+                                                      aria-hidden="true"></span>
+
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="self-protection">
+                                                <span class="bi bi-lock"
+                                                      aria-hidden="true"></span>
+                                                Your account
+                                            </span>
+                                        }
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     CREATE ADMINISTRATOR MODAL
+     ========================================================= -->
+
+@if (ShowCreateAdminModal)
+{
+    <div class="modal-backdrop"
+         @onclick="HandleCreateBackdrop">
+
+        <div class="admin-modal"
+             @onclick:stopPropagation="true">
+
+            <!-- HEADER -->
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi bi-shield-plus"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>Create Administrator</h2>
+
+                        <p>
+                            Create a new account with administrator privileges.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseCreateAdmin"
+                        disabled="@IsSaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <!-- BODY -->
+
+            <div class="modal-body">
+
+                @if (!string.IsNullOrWhiteSpace(ValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        <span>@ValidationMessage</span>
+
+                    </div>
+                }
+
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">1</div>
+
+                        <div>
+
+                            <h3>Administrator Information</h3>
+
+                            <p>
+                                Enter the details for the new administrator.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label>
+                                First Name
+                                <span class="required">*</span>
+                            </label>
+
+                            <input class="form-control"
+                                   @bind="NewAdminFirstName"
+                                   placeholder="e.g. John" />
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Last Name
+                                <span class="required">*</span>
+                            </label>
+
+                            <input class="form-control"
+                                   @bind="NewAdminLastName"
+                                   placeholder="e.g. Banda" />
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Email Address
+                            <span class="required">*</span>
+                        </label>
+
+                        <input type="email"
+                               class="form-control"
+                               @bind="NewAdminEmail"
+                               placeholder="admin@example.com" />
+
+                    </div>
+
+                </div>
+
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">2</div>
+
+                        <div>
+
+                            <h3>Account Security</h3>
+
+                            <p>
+                                Set the initial password for the administrator.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Password
+                            <span class="required">*</span>
+                        </label>
+
+                        <input type="password"
+                               class="form-control"
+                               @bind="NewAdminPassword"
+                               placeholder="Enter a secure password" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Confirm Password
+                            <span class="required">*</span>
+                        </label>
+
+                        <input type="password"
+                               class="form-control"
+                               @bind="NewAdminConfirmPassword"
+                               placeholder="Confirm the password" />
+
+                    </div>
+
+                </div>
+
+
+                <div class="admin-warning">
+
+                    <span class="bi bi-shield-lock"
+                          aria-hidden="true"></span>
+
+                    <div>
+
+                        <strong>Administrator access</strong>
+
+                        <p>
+                            This account will have access to the administrator
+                            area and will be able to manage system users.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseCreateAdmin"
+                        disabled="@IsSaving">
+
+                    Cancel
+
+                </button>
+
+
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="CreateAdministrator"
+                        disabled="@IsSaving">
+
+                    @if (IsSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Creating...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-shield-plus"
+                              aria-hidden="true"></span>
+
+                        <span>Create Administrator</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
 
 @code {
-    private int currentCount = 0;
 
-    private void IncrementCount()
+    // =========================================================
+    // DATA
+    // =========================================================
+
+    private List<AdministratorUser> Users = new();
+
+    private bool IsLoading = true;
+    private bool IsSaving;
+    private bool ShowCreateAdminModal;
+
+    private string SearchTerm = string.Empty;
+
+    private string NewAdminFirstName = string.Empty;
+    private string NewAdminLastName = string.Empty;
+    private string NewAdminEmail = string.Empty;
+    private string NewAdminPassword = string.Empty;
+    private string NewAdminConfirmPassword = string.Empty;
+
+    private string? ValidationMessage;
+    private string? StatusMessage;
+
+    private bool IsError;
+
+    private Guid? CurrentUserId;
+
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
+
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await LoadCurrentUser();
+        await LoadUsers();
+    }
+
+
+    // =========================================================
+    // CURRENT USER
+    // =========================================================
+
+    private async Task LoadCurrentUser()
+    {
+        var authenticationState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        var currentUser =
+            await UserManager.GetUserAsync(
+                authenticationState.User);
+
+        CurrentUserId = currentUser?.Id;
+    }
+
+
+    // =========================================================
+    // LOAD USERS
+    // =========================================================
+
+    private async Task LoadUsers()
+    {
+        IsLoading = true;
+
+        try
+        {
+            var users = UserManager.Users
+                .OrderBy(u => u.LastName)
+                .ThenBy(u => u.FirstName)
+                .ToList();
+
+            Users.Clear();
+
+            foreach (var user in users)
+            {
+                var roles = await UserManager.GetRolesAsync(user);
+
+                Users.Add(new AdministratorUser
+                {
+                    UserId = user.Id,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email ?? user.UserName ?? string.Empty,
+                    IsActive = user.IsActive,
+                    IsAdministrator = roles.Contains("Administrator")
+                });
+            }
+        }
+        catch (Exception)
+        {
+            SetStatus(
+                "Unable to load system users. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    // =========================================================
+    // FILTERING
+    // =========================================================
+
+    private IEnumerable<AdministratorUser> FilteredUsers
+    {
+        get
+        {
+            var users = Users.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                users = users.Where(u =>
+                    GetDisplayName(u)
+                        .Contains(search, StringComparison.OrdinalIgnoreCase)
+                    ||
+                    u.Email.Contains(
+                        search,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
+            return users;
+        }
+    }
+
+
+    // =========================================================
+    // CREATE ADMINISTRATOR
+    // =========================================================
+
+    private void OpenCreateAdmin()
+    {
+        ClearStatus();
+
+        ValidationMessage = null;
+
+        NewAdminFirstName = string.Empty;
+        NewAdminLastName = string.Empty;
+        NewAdminEmail = string.Empty;
+        NewAdminPassword = string.Empty;
+        NewAdminConfirmPassword = string.Empty;
+
+        ShowCreateAdminModal = true;
+    }
+
+
+    private void CloseCreateAdmin()
+    {
+        if (IsSaving)
+            return;
+
+        ShowCreateAdminModal = false;
+        ValidationMessage = null;
+    }
+
+
+    private void HandleCreateBackdrop()
+    {
+        if (!IsSaving)
+        {
+            CloseCreateAdmin();
+        }
+    }
+
+
+    private async Task CreateAdministrator()
+    {
+        ValidationMessage = ValidateNewAdministrator();
+
+        if (!string.IsNullOrWhiteSpace(ValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            // Make sure the Administrator role exists.
+            if (!await RoleManager.RoleExistsAsync("Administrator"))
+            {
+                var roleResult = await RoleManager.CreateAsync(
+                    new IdentityRole<Guid>("Administrator"));
+
+                if (!roleResult.Succeeded)
+                {
+                    ValidationMessage =
+                        string.Join(
+                            " ",
+                            roleResult.Errors.Select(e => e.Description));
+
+                    return;
+                }
+            }
+
+
+            var normalizedEmail = NewAdminEmail.Trim();
+
+
+            var existingUser = await UserManager.FindByEmailAsync(
+                normalizedEmail);
+
+            if (existingUser != null)
+            {
+                ValidationMessage =
+                    "An account with this email address already exists.";
+
+                return;
+            }
+
+
+            var newUser = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = normalizedEmail,
+                Email = normalizedEmail,
+                FirstName = NewAdminFirstName.Trim(),
+                LastName = NewAdminLastName.Trim(),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+
+            var createResult = await UserManager.CreateAsync(
+                newUser,
+                NewAdminPassword);
+
+
+            if (!createResult.Succeeded)
+            {
+                ValidationMessage =
+                    string.Join(
+                        " ",
+                        createResult.Errors.Select(e => e.Description));
+
+                return;
+            }
+
+
+            var roleResultForUser =
+                await UserManager.AddToRoleAsync(
+                    newUser,
+                    "Administrator");
+
+
+            if (!roleResultForUser.Succeeded)
+            {
+                // Roll back the account if administrator assignment fails.
+                await UserManager.DeleteAsync(newUser);
+
+                ValidationMessage =
+                    string.Join(
+                        " ",
+                        roleResultForUser.Errors.Select(e => e.Description));
+
+                return;
+            }
+
+
+            CloseCreateAdmin();
+
+            SetStatus(
+                $"{newUser.FirstName} {newUser.LastName} was successfully created as an administrator.",
+                false);
+
+            await LoadUsers();
+        }
+        catch (Exception)
+        {
+            ValidationMessage =
+                "Something went wrong while creating the administrator account.";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // VALIDATE NEW ADMIN
+    // =========================================================
+
+    private string? ValidateNewAdministrator()
+    {
+        if (string.IsNullOrWhiteSpace(NewAdminFirstName))
+            return "First name is required.";
+
+        if (string.IsNullOrWhiteSpace(NewAdminLastName))
+            return "Last name is required.";
+
+        if (string.IsNullOrWhiteSpace(NewAdminEmail))
+            return "Email address is required.";
+
+        if (!NewAdminEmail.Contains("@"))
+            return "Please enter a valid email address.";
+
+        if (string.IsNullOrWhiteSpace(NewAdminPassword))
+            return "Password is required.";
+
+        if (NewAdminPassword != NewAdminConfirmPassword)
+            return "The passwords do not match.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // TOGGLE USER STATUS
+    // =========================================================
+
+    private async Task ToggleUserStatus(AdministratorUser user)
+    {
+        if (user.UserId == CurrentUserId)
+        {
+            SetStatus(
+                "You cannot deactivate your own administrator account.",
+                true);
+
+            return;
+        }
+
+        try
+        {
+            var existingUser =
+                await UserManager.FindByIdAsync(
+                    user.UserId.ToString());
+
+            if (existingUser == null)
+            {
+                SetStatus(
+                    "The user could not be found.",
+                    true);
+
+                return;
+            }
+
+            existingUser.IsActive = !existingUser.IsActive;
+
+            var result =
+                await UserManager.UpdateAsync(existingUser);
+
+            if (!result.Succeeded)
+            {
+                SetStatus(
+                    string.Join(
+                        " ",
+                        result.Errors.Select(e => e.Description)),
+                    true);
+
+                return;
+            }
+
+            SetStatus(
+                $"{GetDisplayName(user)} was successfully " +
+                $"{(existingUser.IsActive ? "activated" : "deactivated")}.",
+                false);
+
+            await LoadUsers();
+        }
+        catch (Exception)
+        {
+            SetStatus(
+                "Something went wrong while updating the user's status.",
+                true);
+        }
+    }
+
+
+    // =========================================================
+    // TOGGLE ADMINISTRATOR ROLE
+    // =========================================================
+
+    private async Task ToggleAdministrator(AdministratorUser user)
+    {
+        if (user.UserId == CurrentUserId)
+        {
+            SetStatus(
+                "You cannot remove administrator privileges from your own account.",
+                true);
+
+            return;
+        }
+
+        try
+        {
+            var existingUser =
+                await UserManager.FindByIdAsync(
+                    user.UserId.ToString());
+
+            if (existingUser == null)
+            {
+                SetStatus(
+                    "The user could not be found.",
+                    true);
+
+                return;
+            }
+
+
+            if (!await RoleManager.RoleExistsAsync("Administrator"))
+            {
+                var roleResult =
+                    await RoleManager.CreateAsync(
+                        new IdentityRole<Guid>("Administrator"));
+
+                if (!roleResult.Succeeded)
+                {
+                    SetStatus(
+                        "The Administrator role could not be created.",
+                        true);
+
+                    return;
+                }
+            }
+
+
+            var isAdministrator =
+                await UserManager.IsInRoleAsync(
+                    existingUser,
+                    "Administrator");
+
+
+            IdentityResult result;
+
+
+            if (isAdministrator)
+            {
+                result =
+                    await UserManager.RemoveFromRoleAsync(
+                        existingUser,
+                        "Administrator");
+            }
+            else
+            {
+                result =
+                    await UserManager.AddToRoleAsync(
+                        existingUser,
+                        "Administrator");
+            }
+
+
+            if (!result.Succeeded)
+            {
+                SetStatus(
+                    string.Join(
+                        " ",
+                        result.Errors.Select(e => e.Description)),
+                    true);
+
+                return;
+            }
+
+
+            SetStatus(
+                $"{GetDisplayName(user)} was successfully " +
+                $"{(isAdministrator
+                    ? "removed from"
+                    : "given")} the Administrator role.",
+                false);
+
+            await LoadUsers();
+        }
+        catch (Exception)
+        {
+            SetStatus(
+                "Something went wrong while updating administrator privileges.",
+                true);
+        }
+    }
+
+
+    // =========================================================
+    // SEARCH
+    // =========================================================
+
+    private void ClearSearch()
+    {
+        SearchTerm = string.Empty;
+    }
+
+
+    // =========================================================
+    // DISPLAY HELPERS
+    // =========================================================
+
+    private static string GetDisplayName(
+        AdministratorUser user)
+    {
+        var name =
+            $"{user.FirstName} {user.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(name)
+            ? user.Email
+            : name;
+    }
+
+
+    private static string GetInitials(
+        AdministratorUser user)
+    {
+        var first =
+            string.IsNullOrWhiteSpace(user.FirstName)
+                ? ""
+                : user.FirstName[..1].ToUpper();
+
+        var last =
+            string.IsNullOrWhiteSpace(user.LastName)
+                ? ""
+                : user.LastName[..1].ToUpper();
+
+        var initials = $"{first}{last}";
+
+        return string.IsNullOrWhiteSpace(initials)
+            ? "?"
+            : initials;
+    }
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private void SetStatus(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+        IsError = error;
+    }
+
+
+    private void ClearStatus()
+    {
+        StatusMessage = null;
+        IsError = false;
+    }
+
+
+    // =========================================================
+    // VIEW MODEL
+    // =========================================================
+
+    private sealed class AdministratorUser
+    {
+        public Guid UserId { get; set; }
+
+        public string FirstName { get; set; } = string.Empty;
+
+        public string LastName { get; set; } = string.Empty;
+
+        public string Email { get; set; } = string.Empty;
+
+        public bool IsActive { get; set; }
+
+        public bool IsAdministrator { get; set; }
     }
 }

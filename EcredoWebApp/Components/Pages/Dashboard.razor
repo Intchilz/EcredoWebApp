@@ -1,0 +1,513 @@
+@page "/dashboard"
+
+@using EcredoWebApp.Data
+@using EcredoWebApp.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<div class="dashboard">
+
+    <!-- ========================================================= -->
+    <!-- HEADER -->
+    <!-- ========================================================= -->
+
+    <div class="dashboard-header">
+        <div>
+            <h1>Admin Dashboard</h1>
+            <p class="dashboard-subtitle">
+                Here's an overview of your store.
+            </p>
+        </div>
+
+        <div class="dashboard-date">
+            <span class="date-label">Today</span>
+            <strong>@DateTime.Now.ToString("dd MMM yyyy")</strong>
+        </div>
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- STATISTICS -->
+    <!-- ========================================================= -->
+
+    <div class="stats-grid">
+
+        <!-- Sales -->
+        <div class="stat-card">
+            <div class="stat-icon sales-icon">
+                <span class="bi bi-cash-stack" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Total Sales</span>
+                <h2>K @TotalSales.ToString("N2")</h2>
+                <span class="stat-description">
+                    Completed orders
+                </span>
+            </div>
+        </div>
+
+
+        <!-- Orders -->
+        <div class="stat-card">
+            <div class="stat-icon orders-icon">
+                <span class="bi bi-cart3" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Orders</span>
+                <h2>@TotalOrders</h2>
+                <span class="stat-description">
+                    @PendingOrders pending
+                </span>
+            </div>
+        </div>
+
+
+        <!-- Customers -->
+        <div class="stat-card">
+            <div class="stat-icon customers-icon">
+                <span class="bi bi-people" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Customers</span>
+                <h2>@TotalCustomers</h2>
+                <span class="stat-description">
+                    Registered customers
+                </span>
+            </div>
+        </div>
+
+
+        <!-- Products -->
+        <div class="stat-card">
+            <div class="stat-icon products-icon">
+                <span class="bi bi-phone" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Products</span>
+                <h2>@TotalProducts</h2>
+                <span class="stat-description">
+                    @LowStockProducts products low in stock
+                </span>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- SECONDARY STATISTICS -->
+    <!-- ========================================================= -->
+
+    <div class="secondary-grid">
+
+        <!-- Payments -->
+        <div class="summary-card">
+            <div class="summary-header">
+                <div>
+                    <span class="summary-title">Payments</span>
+                    <h3>K @TotalPayments.ToString("N2")</h3>
+                </div>
+
+                <span class="bi bi-wallet2 summary-icon" aria-hidden="true"></span>
+            </div>
+
+            <div class="summary-footer">
+                <span>Payments received</span>
+            </div>
+        </div>
+
+
+        <!-- Swap Requests -->
+        <div class="summary-card">
+            <div class="summary-header">
+                <div>
+                    <span class="summary-title">Swap Requests</span>
+                    <h3>@PendingSwapRequests</h3>
+                </div>
+
+                <span class="bi bi-arrow-repeat summary-icon" aria-hidden="true"></span>
+            </div>
+
+            <div class="summary-footer">
+                <span>Pending review</span>
+            </div>
+        </div>
+
+
+        <!-- Layby -->
+        <div class="summary-card">
+            <div class="summary-header">
+                <div>
+                    <span class="summary-title">Layby Agreements</span>
+                    <h3>@ActiveLaybyAgreements</h3>
+                </div>
+
+                <span class="bi bi-calendar-check summary-icon" aria-hidden="true"></span>
+            </div>
+
+            <div class="summary-footer">
+                <span>Active agreements</span>
+            </div>
+        </div>
+
+
+        <!-- Hire Purchase -->
+        <div class="summary-card">
+            <div class="summary-header">
+                <div>
+                    <span class="summary-title">Hire Purchase</span>
+                    <h3>@ActiveHirePurchaseAgreements</h3>
+                </div>
+
+                <span class="bi bi-credit-card summary-icon" aria-hidden="true"></span>
+            </div>
+
+            <div class="summary-footer">
+                <span>Active agreements</span>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- QUICK ACTIONS -->
+    <!-- ========================================================= -->
+
+    <div class="section">
+
+        <div class="section-header">
+            <div>
+                <h2>Quick Actions</h2>
+                <p>Frequently used administration functions.</p>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+
+            <NavLink href="/products/add" class="quick-action">
+                <span class="bi bi-plus-circle" aria-hidden="true"></span>
+
+                <div>
+                    <strong>Add Product</strong>
+                    <span>Add a new phone or accessory</span>
+                </div>
+            </NavLink>
+
+
+            <NavLink href="/products" class="quick-action">
+                <span class="bi bi-phone" aria-hidden="true"></span>
+
+                <div>
+                    <strong>Manage Products</strong>
+                    <span>View and manage inventory</span>
+                </div>
+            </NavLink>
+
+
+            <NavLink href="/orders" class="quick-action">
+                <span class="bi bi-cart3" aria-hidden="true"></span>
+
+                <div>
+                    <strong>Manage Orders</strong>
+                    <span>Review customer orders</span>
+                </div>
+            </NavLink>
+
+
+            <NavLink href="/customers" class="quick-action">
+                <span class="bi bi-people" aria-hidden="true"></span>
+
+                <div>
+                    <strong>Customers</strong>
+                    <span>View registered customers</span>
+                </div>
+            </NavLink>
+
+
+            <NavLink href="/swap-requests" class="quick-action">
+                <span class="bi bi-arrow-repeat" aria-hidden="true"></span>
+
+                <div>
+                    <strong>Swap Requests</strong>
+                    <span>Review device swaps</span>
+                </div>
+            </NavLink>
+
+
+            <NavLink href="/reports" class="quick-action">
+                <span class="bi bi-bar-chart-line" aria-hidden="true"></span>
+
+                <div>
+                    <strong>Generate Report</strong>
+                    <span>View business reports</span>
+                </div>
+            </NavLink>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- RECENT ORDERS + LOW STOCK -->
+    <!-- ========================================================= -->
+
+    <div class="dashboard-columns">
+
+        <!-- RECENT ORDERS -->
+
+        <div class="panel">
+
+            <div class="panel-header">
+                <div>
+                    <h2>Recent Orders</h2>
+                    <p>Latest customer orders</p>
+                </div>
+
+                <NavLink href="/orders" class="view-all">
+                    View All
+                </NavLink>
+            </div>
+
+
+            @if (RecentOrders.Any())
+            {
+                <div class="table-container">
+
+                    <table class="dashboard-table">
+
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @foreach (var order in RecentOrders)
+                            {
+                                <tr>
+
+                                    <td>
+                                        <strong>
+                                            #@order.OrderId.ToString()[..8].ToUpper()
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        @order.OrderDate.ToLocalTime().ToString("dd MMM yyyy")
+                                    </td>
+
+                                    <td>
+                                        K @order.TotalAmount.ToString("N2")
+                                    </td>
+
+                                    <td>
+                                        <span class="status-badge">
+                                            @order.Status
+                                        </span>
+                                    </td>
+
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <span class="bi bi-cart-x" aria-hidden="true"></span>
+                    <p>No orders have been placed yet.</p>
+                </div>
+            }
+
+        </div>
+
+
+        <!-- LOW STOCK -->
+
+        <div class="panel">
+
+            <div class="panel-header">
+                <div>
+                    <h2>Low Stock</h2>
+                    <p>Products requiring attention</p>
+                </div>
+
+                <NavLink href="/products" class="view-all">
+                    View All
+                </NavLink>
+            </div>
+
+
+            @if (LowStockItems.Any())
+            {
+                <div class="low-stock-list">
+
+                    @foreach (var product in LowStockItems)
+                    {
+                        <div class="low-stock-item">
+
+                            <div class="product-icon">
+                                <span class="bi bi-phone" aria-hidden="true"></span>
+                            </div>
+
+                            <div class="product-info">
+                                <strong>@product.Name</strong>
+
+                                <span>
+                                    @(product.Brand ?? "Unknown brand")
+                                </span>
+                            </div>
+
+                            <div class="stock-count">
+                                <strong>@product.Quantity</strong>
+                                <span>left</span>
+                            </div>
+
+                        </div>
+                    }
+
+                </div>
+            }
+            else
+            {
+                <div class="empty-state">
+                    <span class="bi bi-check-circle" aria-hidden="true"></span>
+                    <p>All products have sufficient stock.</p>
+                </div>
+            }
+
+        </div>
+
+    </div>
+
+</div>
+
+
+@code {
+
+    private decimal TotalSales;
+    private int TotalOrders;
+    private int PendingOrders;
+    private int TotalCustomers;
+    private int TotalProducts;
+    private int LowStockProducts;
+
+    private decimal TotalPayments;
+    private int PendingSwapRequests;
+    private int ActiveLaybyAgreements;
+    private int ActiveHirePurchaseAgreements;
+
+    private List<Order> RecentOrders = new();
+    private List<Product> LowStockItems = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        // =========================================================
+        // SALES
+        // =========================================================
+
+        TotalSales = await DbContext.Orders
+            .Where(o => o.Status.ToString() == "Completed")
+            .SumAsync(o => (decimal?)o.TotalAmount) ?? 0;
+
+
+        // =========================================================
+        // ORDERS
+        // =========================================================
+
+        TotalOrders = await DbContext.Orders.CountAsync();
+
+        PendingOrders = await DbContext.Orders
+            .Where(o => o.Status.ToString() == "Pending")
+            .CountAsync();
+
+
+        // =========================================================
+        // CUSTOMERS
+        // =========================================================
+
+        TotalCustomers = await DbContext.Users.CountAsync();
+
+
+        // =========================================================
+        // PRODUCTS
+        // =========================================================
+
+        TotalProducts = await DbContext.Products.CountAsync();
+
+        LowStockProducts = await DbContext.Products
+            .Where(p => p.Quantity <= 5)
+            .CountAsync();
+
+
+        // =========================================================
+        // PAYMENTS
+        // =========================================================
+
+        TotalPayments = await DbContext.Payments
+            .Where(p => p.PaymentStatus.ToString() == "Paid")
+            .SumAsync(p => (decimal?)p.Amount) ?? 0;
+
+
+        // =========================================================
+        // SWAP REQUESTS
+        // =========================================================
+
+        PendingSwapRequests = await DbContext.SwapRequests
+            .Where(s => s.Status.ToString() == "Pending")
+            .CountAsync();
+
+
+        // =========================================================
+        // FINANCING
+        // =========================================================
+
+        ActiveLaybyAgreements = await DbContext.LaybyAgreements
+            .Where(l => l.Status.ToString() == "Active")
+            .CountAsync();
+
+        ActiveHirePurchaseAgreements = await DbContext.HirePurchaseAgreements
+            .Where(h => h.Status.ToString() == "Active")
+            .CountAsync();
+
+
+        // =========================================================
+        // RECENT ORDERS
+        // =========================================================
+
+        RecentOrders = await DbContext.Orders
+            .OrderByDescending(o => o.OrderDate)
+            .Take(5)
+            .ToListAsync();
+
+
+        // =========================================================
+        // LOW STOCK PRODUCTS
+        // =========================================================
+
+        LowStockItems = await DbContext.Products
+            .Where(p => p.Quantity <= 5)
+            .OrderBy(p => p.Quantity)
+            .Take(5)
+            .ToListAsync();
+    }
+}

@@ -1,7 +1,322 @@
 ﻿@page "/"
+@layout HomeLayout
+@rendermode InteractiveServer
+@using EcredoWebApp.Models
+@using EcredoWebApp.Data
+@using Microsoft.EntityFrameworkCore
 
-<PageTitle>Dashboard</PageTitle>
+@inject ApplicationDbContext DbContext
 
-<h1>Dashboard Content Here</h1>
+<PageTitle>Home Page</PageTitle>
+
+<section class="hero-section">
+
+    <!-- Background image -->
+    <div class="hero-background"></div>
+
+    <!-- Foreground content -->
+    <div class="hero-content">
+
+        <img src="images/hero-kings.png"
+             alt="Ecredo"
+             class="hero-foreground-image" />
+
+        <a href="/store" class="hero-shop-button">
+            Shop Now
+        </a>
+
+    </div>
+
+</section> 
+
+<!-- =========================================================
+     LATEST PRODUCTS
+     ========================================================= -->
+
+<section class="latest-products-section">
+
+    <div class="latest-products-container">
+
+        <!-- SECTION HEADER -->
+
+        <div class="latest-products-header">
+
+            <div class="latest-products-heading">
+
+                <span class="latest-products-eyebrow">
+                    NEW ARRIVALS
+                </span>
+
+                <h2>
+                    Latest Products
+                </h2>
+
+                <p>
+                    Discover the newest devices and accessories
+                    added to our store.
+                </p>
+
+            </div>
+
+            <a href="/store" class="latest-products-view-all">
+                <span>View All Products</span>
+                <span class="bi bi-arrow-right" aria-hidden="true"></span>
+            </a>
+
+        </div>
+
+
+        <!-- PRODUCT GRID -->
+
+        @if (LatestProducts.Any())
+        {
+            <div class="latest-products-grid">
+
+                @foreach (var product in LatestProducts)
+                {
+                    <article class="latest-product-card">
+
+                        <!-- PRODUCT IMAGE -->
+
+                        <a href="@($"/store")"
+                           class="latest-product-image-link">
+
+                            <div class="latest-product-image">
+
+    @{
+        var primaryImage = product.ProductImages
+            .FirstOrDefault(i => i.IsPrimary);
+
+        primaryImage ??= product.ProductImages.FirstOrDefault();
+    }
+
+    @if (primaryImage != null &&
+         !string.IsNullOrWhiteSpace(primaryImage.ImageUrl))
+    {
+        <img src="@primaryImage.ImageUrl"
+             alt="@product.Name" />
+    }
+    else
+    {
+        <div class="latest-product-no-image">
+            <span class="bi bi-phone"
+                  aria-hidden="true"></span>
+        </div>
+    }
+
+    <span class="latest-product-badge">
+        NEW
+    </span>
+
+</div>
+
+                        </a>
+
+
+                        <!-- PRODUCT INFORMATION -->
+
+                        <div class="latest-product-content">
+
+                            <span class="latest-product-brand">
+                                @product.Brand
+                            </span>
+
+                            <h3>
+                                @product.Name
+                            </h3>
+
+                            @if (!string.IsNullOrWhiteSpace(product.Model))
+                            {
+                                <p class="latest-product-model">
+                                    @product.Model
+                                </p>
+                            }
+
+
+                            <div class="latest-product-bottom">
+
+                                <div class="latest-product-price">
+                                    K @product.Price.ToString("N2")
+                                </div>
+
+                                <a href="@($"/store")"
+                                   class="latest-product-arrow"
+                                   aria-label="View @product.Name">
+
+                                    <span class="bi bi-arrow-up-right"
+                                          aria-hidden="true"></span>
+
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="latest-products-empty">
+
+                <span class="bi bi-box-seam"
+                      aria-hidden="true"></span>
+
+                <p>No products available at the moment.</p>
+
+            </div>
+        }
+
+    </div>
+
+</section>
+
+<section id="about" class="about-section">
+
+    <div class="home-container">
+
+        <div class="section-heading">
+            <span class="section-label">ABOUT US</span>
+
+            <h2>About Ecredo</h2>
+
+            <p>
+                Ecredo is your trusted destination for quality smartphones,
+                electronics and accessories. We provide customers with
+                flexible ways to purchase the devices they need.
+            </p>
+        </div>
+
+        <div class="about-content">
+
+            <div class="about-text">
+                <h3>Technology Made Accessible</h3>
+
+                <p>
+                    We offer new and pre-owned smartphones together with
+                    accessories and flexible purchasing options designed
+                    to make technology more accessible.
+                </p>
+
+                <p>
+                    Whether you prefer to pay in cash, purchase through
+                    layby, or use our hire purchase option, Ecredo gives
+                    you the flexibility to choose what works best for you.
+                </p>
+            </div>
+
+            <div class="about-features">
+
+                <div class="about-feature">
+                    <h4>Quality Products</h4>
+                    <p>
+                        Carefully selected smartphones and accessories
+                        for our customers.
+                    </p>
+                </div>
+
+                <div class="about-feature">
+                    <h4>Flexible Payments</h4>
+                    <p>
+                        Cash, layby and hire purchase options to suit
+                        different customer needs.
+                    </p>
+                </div>
+
+                <div class="about-feature">
+                    <h4>Customer Focused</h4>
+                    <p>
+                        We aim to make buying your next device simple
+                        and convenient.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<section id="contact" class="contact-section">
+
+    <div class="home-container">
+
+        <div class="section-heading">
+            <span class="section-label">CONTACT US</span>
+
+            <h2>Get In Touch</h2>
+
+            <p>
+                Have a question about a product, order or payment option?
+                Our team is ready to assist you.
+            </p>
+        </div>
+
+        <div class="contact-content">
+
+            <div class="contact-information">
+
+                <div class="contact-item">
+                    <h4>Phone</h4>
+                    <p>+260 XXX XXX XXX</p>
+                </div>
+
+                <div class="contact-item">
+                    <h4>Email</h4>
+                    <p>info@ecredo.com</p>
+                </div>
+
+                <div class="contact-item">
+                    <h4>Location</h4>
+                    <p>Zambia</p>
+                </div>
+
+                <div class="contact-item">
+                    <h4>Business Hours</h4>
+                    <p>Monday – Saturday</p>
+                    <p>08:00 – 17:00</p>
+                </div>
+
+            </div>
+
+            <div class="contact-message">
+
+                <h3>We're Here To Help</h3>
+
+                <p>
+                    Whether you are looking for a new smartphone,
+                    interested in a pre-owned device, or want to learn
+                    more about our layby and hire purchase options,
+                    feel free to contact us.
+                </p>
+
+                <a href="/store" class="contact-button">
+                    Visit Our Store
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+@code {
+private List<Product> LatestProducts = new();
+
+protected override async Task OnInitializedAsync()
+{
+    LatestProducts = await DbContext.Products
+        .Include(p => p.ProductImages)
+        .OrderByDescending(p => p.CreatedAt)
+        .Take(5)
+        .ToListAsync();
+}
+}
 
 

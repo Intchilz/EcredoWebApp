@@ -78,16 +78,26 @@ using EcredoWebApp.Components.Layout
 
 #nullable disable
     ;
+#nullable restore
+#line (4,2)-(4,25) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
+using EcredoWebApp.Data
+
+#nullable disable
+    ;
+#nullable restore
+#line (5,2)-(5,27) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
+using EcredoWebApp.Models
+
+#nullable disable
+    ;
+#nullable restore
+#line (6,2)-(6,37) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
+using Microsoft.EntityFrameworkCore
+
+#nullable disable
+    ;
     #line default
     #line hidden
-#nullable restore
-#line (2,12)-(2,29) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
-[StreamRendering]
-
-#line default
-#line hidden
-#nullable disable
-
     [global::Microsoft.AspNetCore.Components.RouteAttribute(
     // language=Route,Component
 #nullable restore
@@ -98,6 +108,7 @@ using EcredoWebApp.Components.Layout
 #line hidden
 #nullable disable
     )]
+    [global::EcredoWebApp.Components.Pages.Customers.__PrivateComponentRenderModeAttribute]
     #nullable restore
     public partial class Customers : global::Microsoft.AspNetCore.Components.ComponentBase
     #nullable disable
@@ -108,37 +119,565 @@ using EcredoWebApp.Components.Layout
         }
         #pragma warning restore 1998
 #nullable restore
-#line (9,8)-(34,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
+#line (928,8)-(1457,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
 
-    private WeatherForecast[]? forecasts;
+
+    // =========================================================
+    // CUSTOMER DATA
+    // =========================================================
+
+    private List<CustomerRow> CustomerList = new();
+
+    private bool IsLoading = true;
+
+    private bool ShowCustomerModal;
+
+    private bool ShowAddCustomerModal;
+
+    private bool IsUpdatingStatus;
+
+    private bool IsSaving;
+
+
+    private CustomerRow? SelectedCustomer;
+
+
+    // =========================================================
+    // FILTERS
+    // =========================================================
+
+    private string SearchTerm = string.Empty;
+
+    private string SelectedStatus = string.Empty;
+
+
+    // =========================================================
+    // NEW CUSTOMER
+    // =========================================================
+
+    private string NewCustomerFirstName = string.Empty;
+
+    private string NewCustomerLastName = string.Empty;
+
+    private string NewCustomerEmail = string.Empty;
+
+    private string NewCustomerPhone = string.Empty;
+
+    private bool NewCustomerIsActive = true;
+
+    private string? CustomerValidationMessage;
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private string? StatusMessage;
+
+    private bool IsError;
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
+    private int TotalCustomers =>
+        CustomerList.Count;
+
+
+    private int ActiveCustomers =>
+        CustomerList.Count(c => c.IsActive);
+
+
+    private int InactiveCustomers =>
+        CustomerList.Count(c => !c.IsActive);
+
+
+    private int CustomersWithOrders =>
+        CustomerList.Count(c => c.OrderCount > 0);
+
+
+    // =========================================================
+    // FILTERED CUSTOMERS
+    // =========================================================
+
+    private IEnumerable<CustomerRow> FilteredCustomers
+    {
+        get
+        {
+            var customers = CustomerList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                customers = customers.Where(c =>
+                    GetCustomerName(c)
+                        .Contains(
+                            search,
+                            StringComparison.OrdinalIgnoreCase)
+                    ||
+                    (!string.IsNullOrWhiteSpace(c.Email)
+                     && c.Email.Contains(
+                         search,
+                         StringComparison.OrdinalIgnoreCase))
+                    ||
+                    (!string.IsNullOrWhiteSpace(c.PhoneNumber)
+                     && c.PhoneNumber.Contains(
+                         search,
+                         StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (SelectedStatus == "active")
+            {
+                customers = customers.Where(c => c.IsActive);
+            }
+            else if (SelectedStatus == "inactive")
+            {
+                customers = customers.Where(c => !c.IsActive);
+            }
+
+            return customers;
+        }
+    }
+
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
 
     protected override async Task OnInitializedAsync()
     {
-        // Simulate asynchronous loading to demonstrate streaming rendering
-        await Task.Delay(500);
-
-        var startDate = DateOnly.FromDateTime(DateTime.Now);
-        var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
-        forecasts = Enumerable.Range(1, 5).Select(index => new WeatherForecast
-        {
-            Date = startDate.AddDays(index),
-            TemperatureC = Random.Shared.Next(-20, 55),
-            Summary = summaries[Random.Shared.Next(summaries.Length)]
-        }).ToArray();
+        await LoadCustomers();
     }
 
-    private class WeatherForecast
+
+    // =========================================================
+    // LOAD CUSTOMERS
+    // =========================================================
+
+    private async Task LoadCustomers()
     {
-        public DateOnly Date { get; set; }
-        public int TemperatureC { get; set; }
-        public string? Summary { get; set; }
-        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+        IsLoading = true;
+
+        try
+        {
+            CustomerList = await Db.Users
+                .AsNoTracking()
+                .OrderByDescending(u => u.CreatedAt)
+                .Select(u => new CustomerRow
+                {
+                    UserId = u.Id,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber,
+                    IsActive = u.IsActive,
+                    CreatedAt = u.CreatedAt,
+                    OrderCount = u.Orders.Count(),
+                    SwapRequestCount = u.SwapRequests.Count()
+                })
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Unable to load customers. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
+
+
+    // =========================================================
+    // FILTER CONTROLS
+    // =========================================================
+
+    private void ClearFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedStatus = string.Empty;
+    }
+
+
+    // =========================================================
+    // ADD CUSTOMER
+    // =========================================================
+
+    private void OpenAddCustomer()
+    {
+        ClearStatusMessage();
+
+        CustomerValidationMessage = null;
+
+        NewCustomerFirstName = string.Empty;
+        NewCustomerLastName = string.Empty;
+        NewCustomerEmail = string.Empty;
+        NewCustomerPhone = string.Empty;
+        NewCustomerIsActive = true;
+
+        ShowAddCustomerModal = true;
+    }
+
+
+    private void CloseAddCustomer()
+    {
+        if (IsSaving)
+            return;
+
+        ShowAddCustomerModal = false;
+
+        CustomerValidationMessage = null;
+
+        NewCustomerFirstName = string.Empty;
+        NewCustomerLastName = string.Empty;
+        NewCustomerEmail = string.Empty;
+        NewCustomerPhone = string.Empty;
+        NewCustomerIsActive = true;
+    }
+
+
+    private void HandleAddCustomerBackdropClick()
+    {
+        if (!IsSaving)
+        {
+            CloseAddCustomer();
+        }
+    }
+
+
+    // =========================================================
+    // CREATE CUSTOMER
+    // =========================================================
+
+    private async Task CreateCustomer()
+    {
+        CustomerValidationMessage = ValidateNewCustomer();
+
+        if (!string.IsNullOrWhiteSpace(CustomerValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            var email = string.IsNullOrWhiteSpace(NewCustomerEmail)
+                ? null
+                : NewCustomerEmail.Trim();
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var emailExists = await Db.Users
+                    .AnyAsync(u =>
+                        u.Email != null &&
+                        u.Email.ToLower() == email.ToLower());
+
+                if (emailExists)
+                {
+                    CustomerValidationMessage =
+                        "A customer with that email address already exists.";
+
+                    return;
+                }
+            }
+
+            var customer = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+
+                FirstName = NewCustomerFirstName.Trim(),
+
+                LastName = NewCustomerLastName.Trim(),
+
+                Email = email,
+
+                UserName = email,
+
+                PhoneNumber = string.IsNullOrWhiteSpace(NewCustomerPhone)
+                    ? null
+                    : NewCustomerPhone.Trim(),
+
+                IsActive = NewCustomerIsActive,
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                customer.NormalizedEmail =
+                    email.ToUpperInvariant();
+
+                customer.NormalizedUserName =
+                    email.ToUpperInvariant();
+            }
+
+            Db.Users.Add(customer);
+
+            await Db.SaveChangesAsync();
+
+            var customerName =
+                $"{customer.FirstName} {customer.LastName}".Trim();
+
+            CloseAddCustomer();
+
+            SetStatusMessage(
+                $"{customerName} was successfully added as a customer.",
+                false);
+
+            await LoadCustomers();
+        }
+        catch (DbUpdateException)
+        {
+            CustomerValidationMessage =
+                "The customer could not be created because of a database constraint. Please check the information and try again.";
+        }
+        catch (Exception)
+        {
+            CustomerValidationMessage =
+                "Something went wrong while creating the customer. Please try again.";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // CUSTOMER VALIDATION
+    // =========================================================
+
+    private string? ValidateNewCustomer()
+    {
+        if (string.IsNullOrWhiteSpace(NewCustomerFirstName))
+            return "First name is required.";
+
+        if (string.IsNullOrWhiteSpace(NewCustomerLastName))
+            return "Last name is required.";
+
+        if (NewCustomerFirstName.Trim().Length > 100)
+            return "First name cannot exceed 100 characters.";
+
+        if (NewCustomerLastName.Trim().Length > 100)
+            return "Last name cannot exceed 100 characters.";
+
+        if (NewCustomerEmail.Trim().Length > 256)
+            return "Email address cannot exceed 256 characters.";
+
+        if (NewCustomerPhone.Trim().Length > 30)
+            return "Phone number cannot exceed 30 characters.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // VIEW CUSTOMER
+    // =========================================================
+
+    private void ViewCustomer(CustomerRow customer)
+    {
+        ClearStatusMessage();
+
+        SelectedCustomer = customer;
+
+        ShowCustomerModal = true;
+    }
+
+
+    private void CloseCustomerModal()
+    {
+        if (IsUpdatingStatus)
+            return;
+
+        ShowCustomerModal = false;
+
+        SelectedCustomer = null;
+    }
+
+
+    // =========================================================
+    // ACTIVATE / DEACTIVATE
+    // =========================================================
+
+    private async Task ToggleCustomerStatus(CustomerRow customer)
+    {
+        IsUpdatingStatus = true;
+
+        var newStatus = !customer.IsActive;
+
+        var customerName = GetCustomerName(customer);
+
+        try
+        {
+            var user = await Db.Users
+                .FirstOrDefaultAsync(u =>
+                    u.Id == customer.UserId);
+
+            if (user == null)
+            {
+                SetStatusMessage(
+                    "The customer account could not be found.",
+                    true);
+
+                return;
+            }
+
+            user.IsActive = newStatus;
+
+            await Db.SaveChangesAsync();
+
+            customer.IsActive = newStatus;
+
+            if (SelectedCustomer?.UserId == customer.UserId)
+            {
+                SelectedCustomer.IsActive = newStatus;
+            }
+
+            SetStatusMessage(
+                newStatus
+                    ? $"{customerName} has been activated."
+                    : $"{customerName} has been deactivated.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The customer status could not be updated because of a database constraint.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while updating the customer account.",
+                true);
+        }
+        finally
+        {
+            IsUpdatingStatus = false;
+        }
+    }
+
+
+    // =========================================================
+    // CUSTOMER DISPLAY
+    // =========================================================
+
+    private static string GetCustomerName(CustomerRow customer)
+    {
+        var fullName =
+            $"{customer.FirstName} {customer.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(fullName)
+            ? "Unnamed Customer"
+            : fullName;
+    }
+
+
+    private static string GetInitials(CustomerRow customer)
+    {
+        var first = customer.FirstName?.Trim();
+
+        var last = customer.LastName?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(first)
+            && !string.IsNullOrWhiteSpace(last))
+        {
+            return
+                $"{char.ToUpperInvariant(first[0])}" +
+                $"{char.ToUpperInvariant(last[0])}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(first))
+            return first[..1].ToUpperInvariant();
+
+        if (!string.IsNullOrWhiteSpace(last))
+            return last[..1].ToUpperInvariant();
+
+        return "?";
+    }
+
+
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
+
+    private void SetStatusMessage(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+
+        IsError = error;
+    }
+
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = null;
+
+        IsError = false;
+    }
+
+
+    // =========================================================
+    // CUSTOMER ROW
+    // =========================================================
+
+    private sealed class CustomerRow
+    {
+        public Guid UserId { get; set; }
+
+        public string? FirstName { get; set; }
+
+        public string? LastName { get; set; }
+
+        public string? Email { get; set; }
+
+        public string? PhoneNumber { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public int OrderCount { get; set; }
+
+        public int SwapRequestCount { get; set; }
+
+    }
+
 
 #line default
 #line hidden
 #nullable disable
 
+        [global::Microsoft.AspNetCore.Components.InjectAttribute] private 
+#nullable restore
+#line (8,9)-(8,29) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
+ApplicationDbContext
+
+#line default
+#line hidden
+#nullable disable
+         
+#nullable restore
+#line (8,30)-(8,32) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Customers.razor"
+Db
+
+#line default
+#line hidden
+#nullable disable
+         { get; set; }
+         = default!;
+        private sealed class __PrivateComponentRenderModeAttribute : global::Microsoft.AspNetCore.Components.RenderModeAttribute
+        {
+            private static global::Microsoft.AspNetCore.Components.IComponentRenderMode ModeImpl => InteractiveServer
+            ;
+            public override global::Microsoft.AspNetCore.Components.IComponentRenderMode Mode => ModeImpl;
+        }
     }
 }
 #pragma warning restore 1591

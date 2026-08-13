@@ -1,0 +1,123 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<div class="home-layout">
+
+    <header class="home-header">
+
+        <div class="container">
+
+            <a href="/" class="logo-link">
+                <img src="images/logo-home.png"
+                     alt="EcredoWebApp Logo"
+                     class="logo-image" />
+            </a>
+
+            <button type="button"
+                    class="mobile-menu-toggle @(menuOpen ? "active" : "")"
+                    @onclick="ToggleMenu"
+                    aria-label="Toggle navigation"
+                    aria-expanded="@menuOpen">
+
+                <span></span>
+                <span></span>
+                <span></span>
+
+            </button>
+
+            <nav class="@(menuOpen ? "nav-open" : "")">
+
+                <a href="/"  @onclick="CloseMenu">
+                    Home
+                </a>
+
+                <a href="/store"  class="nav-link" @onclick="CloseMenu">
+                    Store
+                </a>
+
+                <a href="/#about"  @onclick="CloseMenu">
+                    About
+                </a>
+
+                <a href="/#contact"  @onclick="CloseMenu">
+                    Contact
+                </a>
+
+                @if (isUserSignedIn)
+                {
+                    @if (isAdmin)
+                    {
+                        <a href="/dashboard" @onclick="CloseMenu">
+                            Dashboard
+                        </a>
+                    }
+
+                    <form method="post"
+                        action="/account/logout"
+                        onsubmit="return confirm('Are you sure you want to sign out?');">
+
+                        <button type="submit" class="logout-button">
+                            Sign Out
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <a href="/login" class="login-button" @onclick="CloseMenu">
+                        Sign In
+                    </a>
+                }
+
+            </nav>
+
+        </div>
+
+    </header>
+
+    <main>
+        @Body
+    </main>
+
+    <footer class="footer">
+
+        <div class="container">
+
+            <p>
+                &copy; @DateTime.Today.Year - ECredo Enterprise -
+                <a href="https://www.example.com">Privacy</a>
+            </p>
+
+        </div>
+
+    </footer>
+
+</div>
+
+@code {
+    private bool isUserSignedIn = false;
+    private bool isAdmin = false;
+    private bool menuOpen = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        isUserSignedIn = user.Identity?.IsAuthenticated ?? false;
+        isAdmin = user.IsInRole("Admin");
+    }
+
+    private void ToggleMenu()
+    {
+        menuOpen = !menuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        menuOpen = false;
+    }
+}

@@ -1,15 +1,2258 @@
-﻿@page "/products"
+@page "/products"
 @rendermode InteractiveServer
+
+@using EcredoWebApp.Data
+@using EcredoWebApp.Enums
+@using EcredoWebApp.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject ApplicationDbContext Db
+@inject IJSRuntime JS
 
 <PageTitle>Products</PageTitle>
 
-<h1>Products Content Here</h1>
+<div class="products-page">
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+   <div class="page-header">
+
+        <div class="page-heading">
+            <div class="heading-icon">
+                <span class="bi bi-box-seam" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Products</h1>
+                <p>Manage your inventory, product catalog and categories.</p>
+            </div>
+        </div>
+
+        <div class="page-header-actions">
+
+            <button class="btn btn-secondary"
+                @onclick="OpenCategoryManagement"
+                disabled="@IsSaving">
+
+                <span class="bi bi-tags" aria-hidden="true"></span>
+                Manage Categories
+            </button>
+
+            <button class="btn btn-primary"
+                @onclick="OpenAddProduct"
+                disabled="@IsSaving">
+
+                <span class="bi bi-plus-lg" aria-hidden="true"></span>
+                Add Product
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         SUCCESS / ERROR MESSAGE
+         ===================================================== -->
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert-message @(IsError ? "alert-error" : "alert-success")">
+
+            <span class="bi @(IsError ? "bi-exclamation-circle" : "bi-check-circle")"
+                  aria-hidden="true"></span>
+
+            <span>@StatusMessage</span>
+
+            <button type="button"
+                    class="alert-close"
+                    @onclick="ClearStatusMessage">
+
+                <span class="bi bi-x-lg" aria-hidden="true"></span>
+
+            </button>
+
+        </div>
+    }
+
+
+    <!-- =====================================================
+         STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-box-seam" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Total Products</span>
+                <strong>@TotalProducts</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-check-circle" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">In Stock</span>
+                <strong>@InStockProducts</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-exclamation-triangle" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Low Stock</span>
+                <strong>@LowStockProducts</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-primary">
+                <span class="bi bi-currency-exchange" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Inventory Value</span>
+                <strong>K @InventoryValue.ToString("N2")</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FILTERS
+         ===================================================== -->
+
+    <div class="filter-card">
+
+        <div class="search-box">
+
+            <span class="bi bi-search" aria-hidden="true"></span>
+
+            <input type="text"
+                   placeholder="Search by product, brand or model..."
+                   @bind="SearchTerm"
+                   @bind:event="oninput" />
+
+        </div>
+
+
+        <div class="filter-control">
+
+            <label>Category</label>
+
+            <select @bind="SelectedCategory">
+
+                <option value="">All Categories</option>
+
+                @foreach (var category in Categories)
+                {
+                    <option value="@category.CategoryId">
+                        @category.Name
+                    </option>
+                }
+
+            </select>
+
+        </div>
+
+
+        <div class="filter-control">
+
+            <label>Condition</label>
+
+            <select @bind="SelectedCondition">
+
+                <option value="">All Conditions</option>
+
+                @foreach (var condition in Enum.GetValues<ProductCondition>())
+                {
+                    <option value="@condition">
+                        @GetConditionDisplayName(condition)
+                    </option>
+                }
+
+            </select>
+
+        </div>
+
+
+        <button class="clear-filters"
+                @onclick="ClearFilters">
+
+            <span class="bi bi-x-circle" aria-hidden="true"></span>
+            Clear Filters
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         PRODUCT TABLE
+         ===================================================== -->
+
+    <div class="products-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Product Inventory</h2>
+
+                <span>
+                    Showing @FilteredProducts.Count() of @TotalProducts products
+                </span>
+            </div>
+
+        </div>
+
+
+        @if (IsLoading)
+        {
+            <div class="loading-state">
+
+                <span class="spinner-border" aria-hidden="true"></span>
+
+                <p>Loading products...</p>
+
+            </div>
+        }
+        else if (!FilteredProducts.Any())
+        {
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <span class="bi bi-box-seam" aria-hidden="true"></span>
+                </div>
+
+                <h3>No products found</h3>
+
+                <p>
+                    @(string.IsNullOrWhiteSpace(SearchTerm)
+                        && string.IsNullOrWhiteSpace(SelectedCategory)
+                        && string.IsNullOrWhiteSpace(SelectedCondition)
+                            ? "Your product catalog is currently empty."
+                            : "No products match your current search or filters.")
+                </p>
+
+                @if (!string.IsNullOrWhiteSpace(SearchTerm)
+                    || !string.IsNullOrWhiteSpace(SelectedCategory)
+                    || !string.IsNullOrWhiteSpace(SelectedCondition))
+                {
+                    <button class="btn btn-secondary"
+                            @onclick="ClearFilters">
+
+                        <span class="bi bi-arrow-counterclockwise"
+                              aria-hidden="true"></span>
+
+                        Clear Filters
+
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary"
+                            @onclick="OpenAddProduct">
+
+                        <span class="bi bi-plus-lg"
+                              aria-hidden="true"></span>
+
+                        Add First Product
+
+                    </button>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+
+                <table class="products-table">
+
+                    <thead>
+
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Condition</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Added</th>
+                            <th class="actions-column">Actions</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        @foreach (var product in FilteredProducts)
+                        {
+                            <tr>
+
+                                <!-- PRODUCT -->
+
+                                <td>
+
+                                    <div class="product-cell">
+
+                                        @if (GetPrimaryImage(product) is string imageUrl)
+                                        {
+                                            <div class="product-image">
+                                                <img src="@imageUrl"
+                                                     alt="@product.Name" />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="product-image product-placeholder">
+
+                                                <span class="bi bi-phone"
+                                                      aria-hidden="true"></span>
+
+                                            </div>
+                                        }
+
+
+                                        <div class="product-details">
+
+                                            <strong>@product.Name</strong>
+
+                                            @if (!string.IsNullOrWhiteSpace(product.Brand)
+                                                || !string.IsNullOrWhiteSpace(product.Model))
+                                            {
+                                                <span>
+                                                    @product.Brand
+                                                    @if (!string.IsNullOrWhiteSpace(product.Brand)
+                                                        && !string.IsNullOrWhiteSpace(product.Model))
+                                                    {
+                                                        <text> • </text>
+                                                    }
+                                                    @product.Model
+                                                </span>
+                                            }
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- CATEGORY -->
+
+                                <td>
+                                    <span class="category-text">
+                                        @product.Category?.Name
+                                    </span>
+                                </td>
+
+
+                                <!-- CONDITION -->
+
+                                <td>
+
+                                    <span class="condition-badge @GetConditionClass(product.Condition)">
+                                        @GetConditionDisplayName(product.Condition)
+                                    </span>
+
+                                </td>
+
+
+                                <!-- PRICE -->
+
+                                <td>
+
+                                    <strong class="price">
+                                        K @product.Price.ToString("N2")
+                                    </strong>
+
+                                </td>
+
+
+                                <!-- STOCK -->
+
+                                <td>
+
+                                    <div class="stock-cell">
+
+                                        <strong class="@GetStockClass(product.Quantity)">
+                                            @product.Quantity
+                                        </strong>
+
+                                        <span>
+                                            @GetStockLabel(product.Quantity)
+                                        </span>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- DATE -->
+
+                                <td>
+
+                                    <span class="date-text">
+                                        @product.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")
+                                    </span>
+
+                                </td>
+
+
+                                <!-- ACTIONS -->
+
+                                <td class="actions-column">
+
+                                    <div class="action-buttons">
+
+                                        <button class="icon-button"
+                                                title="Edit product"
+                                                @onclick="() => EditProduct(product)">
+
+                                            <span class="bi bi-pencil"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+
+                                        <button class="icon-button danger"
+                                                title="Delete product"
+                                                @onclick="() => ConfirmDelete(product)">
+
+                                            <span class="bi bi-trash"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     ADD / EDIT PRODUCT MODAL
+     ========================================================= -->
+
+@if (ShowProductModal && EditingProduct != null)
+{
+    <div class="modal-backdrop"
+         @onclick="HandleBackdropClick">
+
+        <div class="product-modal"
+             @onclick:stopPropagation="true">
+
+            <!-- MODAL HEADER -->
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi @(IsEditing ? "bi-pencil-square" : "bi-box-seam")"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>
+                            @(IsEditing ? "Edit Product" : "Add New Product")
+                        </h2>
+
+                        <p>
+                            @(IsEditing
+                                ? "Update the product information below."
+                                : "Add a new product to your inventory.")
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseProductModal"
+                        disabled="@IsSaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <!-- MODAL BODY -->
+
+            <div class="modal-body">
+
+                @if (!string.IsNullOrWhiteSpace(ValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        @ValidationMessage
+
+                    </div>
+                }
+
+
+                <!-- PRODUCT INFORMATION -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">1</div>
+
+                        <div>
+                            <h3>Product Information</h3>
+                            <p>Basic information about the device.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="productName">
+                            Product Name
+                            <span class="required">*</span>
+                        </label>
+
+                        <input id="productName"
+                               class="form-control"
+                               @bind="EditingProduct.Name"
+                               placeholder="e.g. iPhone 15 Pro" />
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label for="brand">
+                                Brand
+                                <span class="required">*</span>
+                            </label>
+
+                            <input id="brand"
+                                   class="form-control"
+                                   @bind="EditingProduct.Brand"
+                                   placeholder="e.g. Apple" />
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="model">
+                                Model
+                            </label>
+
+                            <input id="model"
+                                   class="form-control"
+                                   @bind="EditingProduct.Model"
+                                   placeholder="e.g. A3101" />
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label for="category">
+                                Category
+                                <span class="required">*</span>
+                            </label>
+
+                            <div class="category-select-row">
+
+                                <select id="category"
+                                        class="form-control"
+                                        @bind="EditingProduct.CategoryId">
+
+                                    <option value="@Guid.Empty">
+                                        Select category
+                                    </option>
+
+                                    @foreach (var category in Categories)
+                                    {
+                                        <option value="@category.CategoryId">
+                                            @category.Name
+                                        </option>
+                                    }
+
+                                </select>
+
+                                <button type="button"
+                                        class="btn btn-category"
+                                        @onclick="OpenInlineCategoryModal"
+                                        disabled="@IsSaving">
+
+                                    <span class="bi bi-plus-lg" aria-hidden="true"></span>
+                                    New
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="condition">
+                                Condition
+                                <span class="required">*</span>
+                            </label>
+
+                            <select id="condition"
+                                    class="form-control"
+                                    @bind="EditingProduct.Condition">
+
+                                @foreach (var condition in Enum.GetValues<ProductCondition>())
+                                {
+                                    <option value="@condition">
+                                        @GetConditionDisplayName(condition)
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="description">
+                            Description
+                        </label>
+
+                        <textarea id="description"
+                                  class="form-control textarea"
+                                  rows="4"
+                                  @bind="EditingProduct.Description"
+                                  placeholder="Add a description of the product, specifications, features, or other relevant information...">
+                        </textarea>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PRICING & INVENTORY -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">2</div>
+
+                        <div>
+                            <h3>Pricing & Inventory</h3>
+                            <p>Set the selling price and available stock.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label for="price">
+                                Selling Price
+                                <span class="required">*</span>
+                            </label>
+
+                            <div class="input-prefix">
+
+                                <span>K</span>
+
+                                <input id="price"
+                                       type="number"
+                                       step="0.01"
+                                       min="0"
+                                       class="form-control"
+                                       @bind="EditingProduct.Price" />
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="quantity">
+                                Quantity in Stock
+                                <span class="required">*</span>
+                            </label>
+
+                            <input id="quantity"
+                                   type="number"
+                                   min="0"
+                                   class="form-control"
+                                   @bind="EditingProduct.Quantity" />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PRODUCT IMAGE -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">3</div>
+
+                        <div>
+                            <h3>Product Image</h3>
+                            <p>Add the primary product image.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="image-input-layout">
+
+                        <div class="image-preview">
+
+                            @if (!string.IsNullOrWhiteSpace(ImageUrl))
+                            {
+                                <img src="@ImageUrl"
+                                     alt="Product preview" />
+                            }
+                            else
+                            {
+                                <div class="image-preview-placeholder">
+
+                                    <span class="bi bi-image"
+                                          aria-hidden="true"></span>
+
+                                    <span>Preview</span>
+
+                                </div>
+                            }
+
+                        </div>
+
+
+                        <div class="image-input-content">
+
+                            <div class="form-group">
+
+                                <label for="imageUrl">
+                                    Image URL
+                                </label>
+
+                                <input id="imageUrl"
+                                       class="form-control"
+                                       @bind="ImageUrl"
+                                       @bind:event="oninput"
+                                       placeholder="https://example.com/product-image.jpg" />
+
+                            </div>
+
+                            <p class="image-help">
+                                Add the URL of the product image. Multiple product
+                                images can be managed after the product has been created.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- MODAL FOOTER -->
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseProductModal"
+                        disabled="@IsSaving">
+
+                    Cancel
+
+                </button>
+
+
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="SaveProduct"
+                        disabled="@IsSaving">
+
+                    @if (IsSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-check-lg"
+                              aria-hidden="true"></span>
+
+                        <span>
+                            @(IsEditing ? "Save Changes" : "Add Product")
+                        </span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =========================================================
+     DELETE CONFIRMATION MODAL
+     ========================================================= -->
+
+@if (ShowDeleteModal && ProductToDelete != null)
+{
+    <div class="modal-backdrop"
+         @onclick="CloseDeleteModal">
+
+        <div class="delete-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="delete-icon">
+
+                <span class="bi bi-trash"
+                      aria-hidden="true"></span>
+
+            </div>
+
+
+            <h2>Delete Product?</h2>
+
+            <p>
+                Are you sure you want to delete
+                <strong>@ProductToDelete.Name</strong>?
+            </p>
+
+            <p class="warning-text">
+                This action cannot be undone.
+            </p>
+
+
+            <div class="modal-actions">
+
+                <button class="btn btn-secondary"
+                        @onclick="CloseDeleteModal"
+                        disabled="@IsDeleting">
+
+                    Cancel
+
+                </button>
+
+
+                <button class="btn btn-danger"
+                        @onclick="DeleteProduct"
+                        disabled="@IsDeleting">
+
+                    @if (IsDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-trash"
+                              aria-hidden="true"></span>
+
+                        <span>Delete Product</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =========================================================
+     CATEGORY MANAGEMENT MODAL
+     ========================================================= -->
+
+@if (ShowCategoryManagement)
+{
+    <div class="modal-backdrop category-backdrop"
+         @onclick="CloseCategoryManagement">
+
+        <div class="category-modal"
+             @onclick:stopPropagation="true">
+
+            <!-- HEADER -->
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi bi-tags" aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>Manage Categories</h2>
+
+                        <p>
+                            Create and manage product categories.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseCategoryManagement"
+                        disabled="@IsCategorySaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <!-- BODY -->
+
+            <div class="category-modal-body">
+
+                @if (!string.IsNullOrWhiteSpace(CategoryValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        @CategoryValidationMessage
+
+                    </div>
+                }
+
+
+                <!-- ADD CATEGORY -->
+
+                <div class="category-add-card">
+
+                    <div class="category-add-heading">
+
+                        <div class="category-add-icon">
+                            <span class="bi bi-plus-lg"
+                                  aria-hidden="true"></span>
+                        </div>
+
+                        <div>
+
+                            <strong>Add Category</strong>
+
+                            <span>
+                                Create a category for phones, accessories or any other product.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="category-add-form">
+
+                        <input class="form-control"
+                               placeholder="e.g. Smartphones"
+                               @bind="NewCategoryName"
+                               @bind:event="oninput" />
+
+                        <button type="button"
+                                class="btn btn-primary"
+                                @onclick="CreateCategory"
+                                disabled="@IsCategorySaving">
+
+                            @if (IsCategorySaving)
+                            {
+                                <span class="spinner-border spinner-border-sm"
+                                      aria-hidden="true"></span>
+
+                                <span>Adding...</span>
+                            }
+                            else
+                            {
+                                <span class="bi bi-plus-lg"
+                                      aria-hidden="true"></span>
+
+                                <span>Add Category</span>
+                            }
+
+                        </button>
+
+                    </div>
+
+                    <textarea class="form-control category-description-input"
+                              rows="2"
+                              placeholder="Optional description"
+                              @bind="NewCategoryDescription"></textarea>
+
+                </div>
+
+
+                <!-- CATEGORY LIST -->
+
+                <div class="category-list-section">
+
+                    <div class="category-list-header">
+
+                        <div>
+
+                            <h3>Existing Categories</h3>
+
+                            <span>
+                                @Categories.Count
+                                @(Categories.Count == 1 ? "category" : "categories")
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    @if (!Categories.Any())
+                    {
+                        <div class="category-empty">
+
+                            <div class="category-empty-icon">
+                                <span class="bi bi-tags"
+                                      aria-hidden="true"></span>
+                            </div>
+
+                            <strong>No categories yet</strong>
+
+                            <span>
+                                Create your first category above.
+                            </span>
+
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="category-list">
+
+                            @foreach (var category in Categories)
+                            {
+                                <div class="category-item">
+
+                                    <div class="category-item-icon">
+                                        <span class="bi bi-tag"
+                                              aria-hidden="true"></span>
+                                    </div>
+
+                                    <div class="category-item-content">
+
+                                        <strong>@category.Name</strong>
+
+                                        @if (!string.IsNullOrWhiteSpace(category.Description))
+                                        {
+                                            <span>
+                                                @category.Description
+                                            </span>
+                                        }
+
+                                    </div>
+
+                                    <div class="category-item-actions">
+
+                                        <span class="category-product-count">
+                                            @GetCategoryProductCount(category.CategoryId)
+                                            @(GetCategoryProductCount(category.CategoryId) == 1
+                                                ? "product"
+                                                : "products")
+                                        </span>
+
+                                        <button type="button"
+                                                class="icon-button danger"
+                                                title="Delete category"
+                                                @onclick="() => ConfirmDeleteCategory(category)"
+                                                disabled="@IsCategorySaving">
+
+                                            <span class="bi bi-trash"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+                                    </div>
+
+                                </div>
+                            }
+
+                        </div>
+                    }
+
+                </div>
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseCategoryManagement"
+                        disabled="@IsCategorySaving">
+
+                    Close
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+<!-- =========================================================
+     INLINE CREATE CATEGORY MODAL
+     ========================================================= -->
+
+@if (ShowInlineCategoryModal)
+{
+    <div class="modal-backdrop inline-category-backdrop"
+         @onclick="CloseInlineCategoryModal">
+
+        <div class="inline-category-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi bi-tag" aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>New Category</h2>
+
+                        <p>
+                            Create a category for this product.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseInlineCategoryModal"
+                        disabled="@IsCategorySaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <div class="inline-category-body">
+
+                @if (!string.IsNullOrWhiteSpace(CategoryValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        @CategoryValidationMessage
+
+                    </div>
+                }
+
+
+                <div class="form-group">
+
+                    <label>
+                        Category Name
+                        <span class="required">*</span>
+                    </label>
+
+                    <input class="form-control"
+                           placeholder="e.g. Smartphones"
+                           @bind="NewCategoryName"
+                           @bind:event="oninput" />
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Description
+                    </label>
+
+                    <textarea class="form-control textarea"
+                              rows="3"
+                              placeholder="Optional category description"
+                              @bind="NewCategoryDescription"></textarea>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseInlineCategoryModal"
+                        disabled="@IsCategorySaving">
+
+                    Cancel
+
+                </button>
+
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="CreateCategoryFromProduct"
+                        disabled="@IsCategorySaving">
+
+                    @if (IsCategorySaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Creating...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-plus-lg"
+                              aria-hidden="true"></span>
+
+                        <span>Create Category</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+<!-- =========================================================
+     DELETE CATEGORY MODAL
+     ========================================================= -->
+
+@if (ShowDeleteCategoryModal && CategoryToDelete != null)
+{
+    <div class="modal-backdrop category-delete-backdrop"
+         @onclick="CloseDeleteCategoryModal">
+
+        <div class="delete-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="delete-icon">
+
+                <span class="bi bi-trash"
+                      aria-hidden="true"></span>
+
+            </div>
+
+            <h2>Delete Category?</h2>
+
+            <p>
+                Are you sure you want to delete
+                <strong>@(CategoryToDelete!.Name)</strong>?
+            </p>
+
+            <p class="warning-text">
+                Categories cannot be deleted while products are using them.
+            </p>
+
+            <div class="modal-actions">
+
+                <button class="btn btn-secondary"
+                        @onclick="CloseDeleteCategoryModal"
+                        disabled="@IsCategoryDeleting">
+
+                    Cancel
+
+                </button>
+
+                <button class="btn btn-danger"
+                        @onclick="DeleteCategory"
+                        disabled="@IsCategoryDeleting">
+
+                    @if (IsCategoryDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-trash"
+                              aria-hidden="true"></span>
+
+                        <span>Delete Category</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
 
 @code {
-    private int currentCount = 0;
 
-    private void IncrementCount()
+    private List<Product> ProductList = new();
+    private List<Category> Categories = new();
+
+    private bool IsLoading = true;
+    private bool ShowProductModal;
+    private bool ShowDeleteModal;
+    private bool ShowInlineCategoryModal;
+    private bool ShowCategoryManagement;
+    private bool ShowDeleteCategoryModal;
+    private bool IsSaving;
+    private bool IsDeleting;
+    private bool IsCategorySaving;
+    private bool IsCategoryDeleting;
+
+    private Product? EditingProduct;
+    private Product? ProductToDelete;
+
+    private string SearchTerm = string.Empty;
+    private string SelectedCategory = string.Empty;
+    private string SelectedCondition = string.Empty;
+    private string InlineCategoryName = string.Empty;
+    private string? InlineCategoryValidationMessage;
+    private string NewCategoryName = string.Empty;
+    private string NewCategoryDescription = string.Empty;
+    private string? CategoryValidationMessage;
+
+    private string ImageUrl = string.Empty;
+
+    private string? StatusMessage;
+    private string? ValidationMessage;
+
+    private bool IsError;
+
+    private Category? CategoryToDelete;
+
+    private bool IsCategoryDeleteConfirmed;
+
+    private bool IsEditing =>
+        EditingProduct != null &&
+        EditingProduct.ProductId != Guid.Empty;
+
+
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await LoadProducts();
     }
+
+
+    // =========================================================
+    // DATA LOADING
+    // =========================================================
+
+    private async Task LoadProducts()
+    {
+        IsLoading = true;
+
+        try
+        {
+            ProductList = await Db.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.ProductImages)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Unable to load products. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    // =========================================================
+    // FILTERING
+    // =========================================================
+
+    private IEnumerable<Product> FilteredProducts
+    {
+        get
+        {
+            var products = ProductList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                products = products.Where(p =>
+                    p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(p.Brand) &&
+                     p.Brand.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(p.Model) &&
+                     p.Model.Contains(search, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (Guid.TryParse(SelectedCategory, out var categoryId))
+            {
+                products = products.Where(p =>
+                    p.CategoryId == categoryId);
+            }
+
+            if (Enum.TryParse<ProductCondition>(
+                    SelectedCondition,
+                    out var condition))
+            {
+                products = products.Where(p =>
+                    p.Condition == condition);
+            }
+
+            return products;
+        }
+    }
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
+    private int TotalProducts =>
+        ProductList.Count;
+
+
+    private int InStockProducts =>
+        ProductList.Count(p => p.Quantity > 0);
+
+
+    private int LowStockProducts =>
+        ProductList.Count(p =>
+            p.Quantity > 0 &&
+            p.Quantity <= 5);
+
+
+    private decimal InventoryValue =>
+        ProductList.Sum(p => p.Price * p.Quantity);
+
+
+    // =========================================================
+    // FILTER CONTROLS
+    // =========================================================
+
+    private void ClearFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedCategory = string.Empty;
+        SelectedCondition = string.Empty;
+    }
+
+
+    // =========================================================
+    // CATEGORY MANAGEMENT
+    // =========================================================
+
+    private void OpenInlineCategoryModal()
+    {
+        InlineCategoryValidationMessage = null;
+        InlineCategoryName = string.Empty;
+        ShowInlineCategoryModal = true;
+    }
+
+    private void CloseInlineCategoryModal()
+    {
+        if (IsSaving)
+            return;
+
+        ShowInlineCategoryModal = false;
+        InlineCategoryValidationMessage = null;
+        InlineCategoryName = string.Empty;
+    }
+
+    private async Task SaveInlineCategory()
+    {
+        if (string.IsNullOrWhiteSpace(InlineCategoryName))
+        {
+            InlineCategoryValidationMessage = "Category name is required.";
+            return;
+        }
+
+        var trimmedName = InlineCategoryName.Trim();
+
+        if (trimmedName.Length > 100)
+        {
+            InlineCategoryValidationMessage = "Category name cannot exceed 100 characters.";
+            return;
+        }
+
+        if (await Db.Categories.AnyAsync(c => c.Name == trimmedName))
+        {
+            InlineCategoryValidationMessage = "A category with that name already exists.";
+            return;
+        }
+
+        var newCategory = new Category
+        {
+            CategoryId = Guid.NewGuid(),
+            Name = trimmedName,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        Db.Categories.Add(newCategory);
+        await Db.SaveChangesAsync();
+
+        Categories = await Db.Categories
+            .AsNoTracking()
+            .OrderBy(c => c.Name)
+            .ToListAsync();
+
+        EditingProduct!.CategoryId = newCategory.CategoryId;
+
+        CloseInlineCategoryModal();
+
+        SetStatusMessage(
+            $"{newCategory.Name} was successfully added.",
+            false);
+    }
+
+    private void OpenCategoryManagement()
+    {
+        ClearStatusMessage();
+        CategoryValidationMessage = null;
+        NewCategoryName = string.Empty;
+        NewCategoryDescription = string.Empty;
+        ShowCategoryManagement = true;
+    }
+
+    private void CloseCategoryManagement()
+    {
+        if (IsCategorySaving)
+            return;
+
+        ShowCategoryManagement = false;
+        CategoryValidationMessage = null;
+        NewCategoryName = string.Empty;
+        NewCategoryDescription = string.Empty;
+    }
+
+    private async Task CreateCategory()
+    {
+        if (IsCategorySaving)
+            return;
+
+        if (string.IsNullOrWhiteSpace(NewCategoryName))
+        {
+            CategoryValidationMessage = "Category name is required.";
+            return;
+        }
+
+        var trimmedName = NewCategoryName.Trim();
+
+        if (trimmedName.Length > 100)
+        {
+            CategoryValidationMessage = "Category name cannot exceed 100 characters.";
+            return;
+        }
+
+        if (await Db.Categories.AnyAsync(c => c.Name == trimmedName))
+        {
+            CategoryValidationMessage = "A category with that name already exists.";
+            return;
+        }
+
+        IsCategorySaving = true;
+
+        try
+        {
+            var category = new Category
+            {
+                CategoryId = Guid.NewGuid(),
+                Name = trimmedName,
+                Description = string.IsNullOrWhiteSpace(NewCategoryDescription)
+                    ? null
+                    : NewCategoryDescription.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            Db.Categories.Add(category);
+            await Db.SaveChangesAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            NewCategoryName = string.Empty;
+            NewCategoryDescription = string.Empty;
+            CategoryValidationMessage = null;
+
+            SetStatusMessage(
+                $"{category.Name} was successfully added.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            CategoryValidationMessage = "The category could not be created because of a database constraint.";
+        }
+        catch (Exception)
+        {
+            CategoryValidationMessage = "Something went wrong while creating the category.";
+        }
+        finally
+        {
+            IsCategorySaving = false;
+        }
+    }
+
+    private async Task CreateCategoryFromProduct()
+    {
+        if (IsCategorySaving)
+            return;
+
+        if (string.IsNullOrWhiteSpace(NewCategoryName))
+        {
+            CategoryValidationMessage = "Category name is required.";
+            return;
+        }
+
+        var trimmedName = NewCategoryName.Trim();
+
+        if (trimmedName.Length > 100)
+        {
+            CategoryValidationMessage = "Category name cannot exceed 100 characters.";
+            return;
+        }
+
+        if (await Db.Categories.AnyAsync(c => c.Name == trimmedName))
+        {
+            CategoryValidationMessage = "A category with that name already exists.";
+            return;
+        }
+
+        IsCategorySaving = true;
+
+        try
+        {
+            var category = new Category
+            {
+                CategoryId = Guid.NewGuid(),
+                Name = trimmedName,
+                Description = string.IsNullOrWhiteSpace(NewCategoryDescription)
+                    ? null
+                    : NewCategoryDescription.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            Db.Categories.Add(category);
+            await Db.SaveChangesAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            if (EditingProduct != null)
+            {
+                EditingProduct.CategoryId = category.CategoryId;
+            }
+
+            NewCategoryName = string.Empty;
+            NewCategoryDescription = string.Empty;
+            CategoryValidationMessage = null;
+            ShowInlineCategoryModal = false;
+
+            SetStatusMessage(
+                $"{category.Name} was successfully added.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            CategoryValidationMessage = "The category could not be created because of a database constraint.";
+        }
+        catch (Exception)
+        {
+            CategoryValidationMessage = "Something went wrong while creating the category.";
+        }
+        finally
+        {
+            IsCategorySaving = false;
+        }
+    }
+
+    private async Task ConfirmDeleteCategory(Category category)
+    {
+        if (IsCategorySaving)
+            return;
+
+        CategoryToDelete = category;
+        ShowDeleteCategoryModal = true;
+    }
+
+    private void CloseDeleteCategoryModal()
+    {
+        if (IsCategoryDeleting)
+            return;
+
+        ShowDeleteCategoryModal = false;
+        CategoryToDelete = null;
+        CategoryValidationMessage = null;
+    }
+
+    private async Task DeleteCategory()
+    {
+        if (CategoryToDelete == null)
+            return;
+
+        if (IsCategoryDeleting)
+            return;
+
+        IsCategoryDeleting = true;
+
+        try
+        {
+            var category = CategoryToDelete;
+            var hasProducts = await Db.Products.AnyAsync(p => p.CategoryId == category.CategoryId);
+
+            if (hasProducts)
+            {
+                CategoryValidationMessage = $"'{category.Name}' cannot be deleted because it is currently assigned to products.";
+                SetStatusMessage(
+                    $"'{category.Name}' cannot be deleted because it is currently assigned to products.",
+                    true);
+                return;
+            }
+
+            Db.Categories.Remove(category);
+            await Db.SaveChangesAsync();
+
+            Categories = await Db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            ShowDeleteCategoryModal = false;
+            CategoryValidationMessage = null;
+            SetStatusMessage(
+                $"{category.Name} was successfully deleted.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            CategoryValidationMessage = "The category could not be deleted because of a database constraint.";
+            SetStatusMessage(
+                "The category could not be deleted because of a database constraint.",
+                true);
+        }
+        catch (Exception)
+        {
+            CategoryValidationMessage = "Something went wrong while deleting the category.";
+            SetStatusMessage(
+                "Something went wrong while deleting the category.",
+                true);
+        }
+        finally
+        {
+            IsCategoryDeleting = false;
+            CategoryToDelete = null;
+        }
+    }
+
+    private int GetCategoryProductCount(Guid categoryId)
+    {
+        return ProductList.Count(p => p.CategoryId == categoryId);
+    }
+
+
+    // =========================================================
+    // ADD PRODUCT
+    // =========================================================
+
+    private void OpenAddProduct()
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+        ImageUrl = string.Empty;
+
+        EditingProduct = new Product
+        {
+            ProductId = Guid.Empty,
+            CategoryId = Categories.FirstOrDefault()?.CategoryId ?? Guid.Empty,
+            Condition = Enum.GetValues<ProductCondition>().FirstOrDefault()
+        };
+
+        ShowProductModal = true;
+    }
+
+
+    // =========================================================
+    // EDIT PRODUCT
+    // =========================================================
+
+    private void EditProduct(Product product)
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+
+        EditingProduct = new Product
+        {
+            ProductId = product.ProductId,
+            CategoryId = product.CategoryId,
+            Name = product.Name,
+            Brand = product.Brand,
+            Model = product.Model,
+            Description = product.Description,
+            Price = product.Price,
+            Quantity = product.Quantity,
+            Condition = product.Condition,
+            CreatedAt = product.CreatedAt
+        };
+
+        ImageUrl = GetPrimaryImage(product) ?? string.Empty;
+
+        ShowProductModal = true;
+    }
+
+
+    // =========================================================
+    // CLOSE PRODUCT MODAL
+    // =========================================================
+
+    private void CloseProductModal()
+    {
+        if (IsSaving)
+            return;
+
+        ShowProductModal = false;
+        EditingProduct = null;
+        ValidationMessage = null;
+        ImageUrl = string.Empty;
+    }
+
+
+    private void HandleBackdropClick()
+    {
+        if (!IsSaving)
+        {
+            CloseProductModal();
+        }
+    }
+
+
+    // =========================================================
+    // SAVE PRODUCT
+    // =========================================================
+
+    private async Task SaveProduct()
+    {
+        if (EditingProduct == null)
+            return;
+
+        ValidationMessage = ValidateProduct();
+
+        if (!string.IsNullOrWhiteSpace(ValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            if (EditingProduct.ProductId == Guid.Empty)
+            {
+                EditingProduct.ProductId = Guid.NewGuid();
+                EditingProduct.CreatedAt = DateTime.UtcNow;
+
+                Db.Products.Add(EditingProduct);
+
+                await Db.SaveChangesAsync();
+
+                if (!string.IsNullOrWhiteSpace(ImageUrl))
+                {
+                    Db.ProductImages.Add(new ProductImage
+                    {
+                        ProductId = EditingProduct.ProductId,
+                        ImageUrl = ImageUrl.Trim(),
+                        IsPrimary = true,
+                        UploadedAt = DateTime.UtcNow
+                    });
+
+                    await Db.SaveChangesAsync();
+                }
+
+                CloseProductModal();
+
+                SetStatusMessage(
+                    $"{EditingProduct.Name} was successfully added.",
+                    false);
+            }
+            else
+            {
+                var existingProduct = await Db.Products
+                    .Include(p => p.ProductImages)
+                    .FirstOrDefaultAsync(p =>
+                        p.ProductId == EditingProduct.ProductId);
+
+                if (existingProduct == null)
+                {
+                    SetStatusMessage(
+                        "The product could not be found.",
+                        true);
+
+                    return;
+                }
+
+                existingProduct.CategoryId = EditingProduct.CategoryId;
+                existingProduct.Name = EditingProduct.Name.Trim();
+                existingProduct.Brand = EditingProduct.Brand?.Trim();
+                existingProduct.Model = EditingProduct.Model?.Trim();
+                existingProduct.Description = EditingProduct.Description?.Trim();
+                existingProduct.Price = EditingProduct.Price;
+                existingProduct.Quantity = EditingProduct.Quantity;
+                existingProduct.Condition = EditingProduct.Condition;
+
+                var primaryImage = existingProduct.ProductImages
+                    .FirstOrDefault(i => i.IsPrimary);
+
+                if (!string.IsNullOrWhiteSpace(ImageUrl))
+                {
+                    if (primaryImage == null)
+                    {
+                        Db.ProductImages.Add(new ProductImage
+                        {
+                            ProductId = existingProduct.ProductId,
+                            ImageUrl = ImageUrl.Trim(),
+                            IsPrimary = true,
+                            UploadedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        primaryImage.ImageUrl = ImageUrl.Trim();
+                    }
+                }
+
+                await Db.SaveChangesAsync();
+
+                var productName = existingProduct.Name;
+
+                CloseProductModal();
+
+                SetStatusMessage(
+                    $"{productName} was successfully updated.",
+                    false);
+            }
+
+            await LoadProducts();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The product could not be saved because of a database constraint. Please check the product information and try again.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while saving the product. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // VALIDATION
+    // =========================================================
+
+    private string? ValidateProduct()
+    {
+        if (string.IsNullOrWhiteSpace(EditingProduct?.Name))
+            return "Product name is required.";
+
+        if (EditingProduct.Name.Trim().Length > 200)
+            return "Product name cannot exceed 200 characters.";
+
+        if (EditingProduct.CategoryId == Guid.Empty)
+            return "Please select a product category.";
+
+        if (EditingProduct.Price < 0)
+            return "Product price cannot be negative.";
+
+        if (EditingProduct.Quantity < 0)
+            return "Product quantity cannot be negative.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // DELETE
+    // =========================================================
+
+    private void ConfirmDelete(Product product)
+    {
+        ProductToDelete = product;
+        ShowDeleteModal = true;
+    }
+
+
+    private void CloseDeleteModal()
+    {
+        if (IsDeleting)
+            return;
+
+        ShowDeleteModal = false;
+        ProductToDelete = null;
+    }
+
+
+    private async Task DeleteProduct()
+    {
+        if (ProductToDelete == null)
+            return;
+
+        IsDeleting = true;
+
+        var productName = ProductToDelete.Name;
+
+        try
+        {
+            var existingProduct = await Db.Products
+                .FirstOrDefaultAsync(p =>
+                    p.ProductId == ProductToDelete.ProductId);
+
+            if (existingProduct == null)
+            {
+                SetStatusMessage(
+                    "The product could not be found.",
+                    true);
+
+                return;
+            }
+
+            var hasOrders = await Db.OrderItems
+                .AnyAsync(oi =>
+                    oi.ProductId == ProductToDelete.ProductId);
+
+            if (hasOrders)
+            {
+                SetStatusMessage(
+                    $"'{productName}' cannot be deleted because it is already associated with an order. Consider reducing its stock to zero instead.",
+                    true);
+
+                return;
+            }
+
+            Db.Products.Remove(existingProduct);
+
+            await Db.SaveChangesAsync();
+
+            ShowDeleteModal = false;
+            ProductToDelete = null;
+
+            SetStatusMessage(
+                $"{productName} was successfully deleted.",
+                false);
+
+            await LoadProducts();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                $"'{productName}' could not be deleted because it is being used elsewhere in the system.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while deleting the product.",
+                true);
+        }
+        finally
+        {
+            IsDeleting = false;
+        }
+    }
+
+
+    // =========================================================
+    // PRODUCT IMAGES
+    // =========================================================
+
+    private static string? GetPrimaryImage(Product product)
+    {
+        return product.ProductImages
+            .FirstOrDefault(i => i.IsPrimary)?.ImageUrl
+            ?? product.ProductImages.FirstOrDefault()?.ImageUrl;
+    }
+
+
+    // =========================================================
+    // CONDITION
+    // =========================================================
+
+    private static string GetConditionClass(ProductCondition condition)
+    {
+        return condition switch
+        {
+            ProductCondition.New => "condition-new",
+            ProductCondition.PreOwned => "condition-used",
+            _ => "condition-other"
+        };
+    }
+
+
+    private static string GetConditionDisplayName(ProductCondition condition)
+    {
+        return condition switch
+        {
+            ProductCondition.PreOwned => "Pre-Owned",
+            _ => condition.ToString()
+        };
+    }
+
+
+    // =========================================================
+    // STOCK
+    // =========================================================
+
+    private static string GetStockClass(int quantity)
+    {
+        if (quantity == 0)
+            return "stock-out";
+
+        if (quantity <= 5)
+            return "stock-low";
+
+        return "stock-good";
+    }
+
+
+    private static string GetStockLabel(int quantity)
+    {
+        if (quantity == 0)
+            return "Out of stock";
+
+        if (quantity <= 5)
+            return "Low stock";
+
+        return "In stock";
+    }
+
+
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
+
+    private void SetStatusMessage(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+        IsError = error;
+    }
+
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = null;
+        IsError = false;
+    }
+
 }

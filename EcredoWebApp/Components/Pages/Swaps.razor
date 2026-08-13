@@ -1,15 +1,1700 @@
 @page "/swaps"
 @rendermode InteractiveServer
 
-<PageTitle>Swaps</PageTitle>
+@using EcredoWebApp.Data
+@using EcredoWebApp.Enums
+@using EcredoWebApp.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject ApplicationDbContext Db
 
-<h1>Swap Content Here</h1>
+<PageTitle>Swap Requests</PageTitle>
+
+<div class="swaps-page">
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="page-header">
+
+        <div class="page-heading">
+
+            <div class="heading-icon">
+                <span class="bi bi-arrow-left-right" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Swap Requests</h1>
+                <p>Manage customer device swap requests and trade-ins.</p>
+            </div>
+
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="OpenAddSwap"
+                disabled="@IsSaving">
+
+            <span class="bi bi-plus-lg" aria-hidden="true"></span>
+            Add Swap Request
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         STATUS MESSAGE
+         ===================================================== -->
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert-message @(IsError ? "alert-error" : "alert-success")">
+
+            <span class="bi @(IsError ? "bi-exclamation-circle" : "bi-check-circle")"
+                  aria-hidden="true"></span>
+
+            <span>@StatusMessage</span>
+
+            <button type="button"
+                    class="alert-close"
+                    @onclick="ClearStatusMessage">
+
+                <span class="bi bi-x-lg" aria-hidden="true"></span>
+
+            </button>
+
+        </div>
+    }
+
+
+    <!-- =====================================================
+         STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-arrow-left-right" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Total Requests</span>
+                <strong>@TotalRequests</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-hourglass-split" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Pending</span>
+                <strong>@PendingRequests</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-review">
+                <span class="bi bi-search" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Under Review</span>
+                <strong>@UnderReviewRequests</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-check-circle" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Completed</span>
+                <strong>@CompletedRequests</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FILTERS
+         ===================================================== -->
+
+    <div class="filter-card">
+
+        <div class="search-box">
+
+            <span class="bi bi-search" aria-hidden="true"></span>
+
+            <input type="text"
+                   placeholder="Search customer, device or desired device..."
+                   @bind="SearchTerm"
+                   @bind:event="oninput" />
+
+        </div>
+
+
+        <div class="filter-control">
+
+            <label>Status</label>
+
+            <select @bind="SelectedStatus">
+
+                <option value="">All Statuses</option>
+
+                @foreach (var status in Enum.GetValues<SwapRequestStatus>())
+                {
+                    <option value="@status">
+                        @GetStatusDisplayName(status)
+                    </option>
+                }
+
+            </select>
+
+        </div>
+
+
+        <button class="clear-filters"
+                @onclick="ClearFilters">
+
+            <span class="bi bi-x-circle" aria-hidden="true"></span>
+            Clear Filters
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         REQUEST TABLE
+         ===================================================== -->
+
+    <div class="swaps-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Swap Request History</h2>
+
+                <span>
+                    Showing @FilteredRequests.Count() of @TotalRequests requests
+                </span>
+            </div>
+
+        </div>
+
+
+        @if (IsLoading)
+        {
+            <div class="loading-state">
+
+                <span class="spinner-border" aria-hidden="true"></span>
+
+                <p>Loading swap requests...</p>
+
+            </div>
+        }
+        else if (!FilteredRequests.Any())
+        {
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <span class="bi bi-arrow-left-right"
+                          aria-hidden="true"></span>
+                </div>
+
+                <h3>No swap requests found</h3>
+
+                <p>
+                    @(string.IsNullOrWhiteSpace(SearchTerm)
+                        && string.IsNullOrWhiteSpace(SelectedStatus)
+                        ? "There are currently no swap requests."
+                        : "No swap requests match your current filters.")
+                </p>
+
+                @if (!string.IsNullOrWhiteSpace(SearchTerm)
+                    || !string.IsNullOrWhiteSpace(SelectedStatus))
+                {
+                    <button class="btn btn-secondary"
+                            @onclick="ClearFilters">
+
+                        <span class="bi bi-arrow-counterclockwise"
+                              aria-hidden="true"></span>
+
+                        Clear Filters
+
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary"
+                            @onclick="OpenAddSwap">
+
+                        <span class="bi bi-plus-lg"
+                              aria-hidden="true"></span>
+
+                        Add First Request
+
+                    </button>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+
+                <table class="swaps-table">
+
+                    <thead>
+
+                        <tr>
+                            <th>Customer</th>
+                            <th>Current Device</th>
+                            <th>Desired Device</th>
+                            <th>Top-Up</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th class="actions-column">Actions</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (var request in FilteredRequests)
+                        {
+                            <tr>
+
+                                <!-- CUSTOMER -->
+
+                                <td>
+
+                                    <div class="customer-cell">
+
+                                        <div class="customer-avatar">
+                                            @GetCustomerInitials(request.User)
+                                        </div>
+
+                                        <div class="customer-details">
+
+                                            <strong>
+                                                @GetCustomerName(request.User)
+                                            </strong>
+
+                                            @if (!string.IsNullOrWhiteSpace(request.User?.Email))
+                                            {
+                                                <span>
+                                                    @request.User.Email
+                                                </span>
+                                            }
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- CURRENT DEVICE -->
+
+                                <td>
+
+                                    <div class="device-cell">
+
+                                        <strong>
+                                            @request.CurrentDeviceBrand
+                                        </strong>
+
+                                        <span>
+                                            @request.CurrentDeviceModel
+                                        </span>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- DESIRED DEVICE -->
+
+                                <td>
+
+                                    <div class="desired-device">
+                                        @request.DesiredDevice
+                                    </div>
+
+                                </td>
+
+
+                                <!-- TOP UP -->
+
+                                <td>
+
+                                    <strong class="price">
+                                        K @request.EstimatedTopUpAmount.ToString("N2")
+                                    </strong>
+
+                                </td>
+
+
+                                <!-- STATUS -->
+
+                                <td>
+
+                                    <span class="status-badge @GetStatusClass(request.Status)">
+                                        @GetStatusDisplayName(request.Status)
+                                    </span>
+
+                                </td>
+
+
+                                <!-- DATE -->
+
+                                <td>
+
+                                    <span class="date-text">
+                                        @request.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")
+                                    </span>
+
+                                </td>
+
+
+                                <!-- ACTIONS -->
+
+                                <td class="actions-column">
+
+                                    <div class="action-buttons">
+
+                                        <button class="icon-button"
+                                                title="View request"
+                                                @onclick="() => ViewRequest(request)">
+
+                                            <span class="bi bi-eye"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+
+                                        <button class="icon-button"
+                                                title="Edit request"
+                                                @onclick="() => EditRequest(request)">
+
+                                            <span class="bi bi-pencil"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+
+                                        <button class="icon-button danger"
+                                                title="Delete request"
+                                                @onclick="() => ConfirmDelete(request)">
+
+                                            <span class="bi bi-trash"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     ADD / EDIT SWAP MODAL
+     ========================================================= -->
+
+@if (ShowSwapModal && EditingRequest != null)
+{
+    <div class="modal-backdrop"
+         @onclick="HandleBackdropClick">
+
+        <div class="swap-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi @(IsEditing ? "bi-pencil-square" : "bi-arrow-left-right")"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>
+                            @(IsEditing
+                                ? "Edit Swap Request"
+                                : "Add Swap Request")
+                        </h2>
+
+                        <p>
+                            @(IsEditing
+                                ? "Update the customer's swap request."
+                                : "Create a swap request on behalf of a customer.")
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseSwapModal"
+                        disabled="@IsSaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <div class="modal-body">
+
+                @if (!string.IsNullOrWhiteSpace(ValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        @ValidationMessage
+
+                    </div>
+                }
+
+
+                <!-- CUSTOMER -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">1</div>
+
+                        <div>
+                            <h3>Customer</h3>
+                            <p>Select the customer submitting the swap request.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customer">
+                            Customer
+                            <span class="required">*</span>
+                        </label>
+
+                        <select id="customer"
+                                class="form-control"
+                                @bind="EditingRequest.UserId">
+
+                            <option value="@Guid.Empty">
+                                Select customer
+                            </option>
+
+                            @foreach (var customer in Customers)
+                            {
+                                <option value="@customer.Id">
+                                    @GetCustomerName(customer)
+                                    @if (!string.IsNullOrWhiteSpace(customer.Email))
+                                    {
+                                        <text> — @customer.Email</text>
+                                    }
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CURRENT DEVICE -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">2</div>
+
+                        <div>
+                            <h3>Current Device</h3>
+                            <p>Information about the device the customer wants to trade in.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label>
+                                Brand
+                                <span class="required">*</span>
+                            </label>
+
+                            <input class="form-control"
+                                   @bind="EditingRequest.CurrentDeviceBrand"
+                                   placeholder="e.g. Apple" />
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Model
+                                <span class="required">*</span>
+                            </label>
+
+                            <input class="form-control"
+                                   @bind="EditingRequest.CurrentDeviceModel"
+                                   placeholder="e.g. iPhone 13 Pro" />
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Device Condition
+                            <span class="required">*</span>
+                        </label>
+
+                        <textarea class="form-control textarea"
+                                  rows="3"
+                                  @bind="EditingRequest.DeviceCondition"
+                                  placeholder="Describe the physical and functional condition of the device...">
+                        </textarea>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Faults / Damage
+                        </label>
+
+                        <textarea class="form-control textarea"
+                                  rows="3"
+                                  @bind="EditingRequest.FaultDescription"
+                                  placeholder="Describe any faults, cracks, battery issues or other problems...">
+                        </textarea>
+
+                    </div>
+
+                </div>
+
+
+                <!-- SWAP DETAILS -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">3</div>
+
+                        <div>
+                            <h3>Swap Details</h3>
+                            <p>Specify what the customer wants and the estimated top-up.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Desired Device
+                            <span class="required">*</span>
+                        </label>
+
+                        <input class="form-control"
+                               @bind="EditingRequest.DesiredDevice"
+                               placeholder="e.g. iPhone 15 Pro 256GB" />
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label>
+                                Estimated Top-Up
+                                <span class="required">*</span>
+                            </label>
+
+                            <div class="input-prefix">
+
+                                <span>K</span>
+
+                                <input type="number"
+                                       step="0.01"
+                                       min="0"
+                                       class="form-control"
+                                       @bind="EditingRequest.EstimatedTopUpAmount" />
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Request Status
+                            </label>
+
+                            <select class="form-control"
+                                    @bind="EditingRequest.Status">
+
+                                @foreach (var status in Enum.GetValues<SwapRequestStatus>())
+                                {
+                                    <option value="@status">
+                                        @GetStatusDisplayName(status)
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- IMAGES -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">4</div>
+
+                        <div>
+                            <h3>Device Images</h3>
+                            <p>Add image URLs for the customer's device.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>Image 1</label>
+
+                        <input class="form-control"
+                               @bind="EditingRequest.DeviceImage1"
+                               placeholder="https://example.com/device-front.jpg" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>Image 2</label>
+
+                        <input class="form-control"
+                               @bind="EditingRequest.DeviceImage2"
+                               placeholder="https://example.com/device-back.jpg" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>Image 3</label>
+
+                        <input class="form-control"
+                               @bind="EditingRequest.DeviceImage3"
+                               placeholder="https://example.com/device-side.jpg" />
+
+                    </div>
+
+                    <p class="image-help">
+                        Local file uploading is not being handled yet. These fields currently
+                        store image URLs.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseSwapModal"
+                        disabled="@IsSaving">
+
+                    Cancel
+
+                </button>
+
+
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="SaveRequest"
+                        disabled="@IsSaving">
+
+                    @if (IsSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-check-lg"
+                              aria-hidden="true"></span>
+
+                        <span>
+                            @(IsEditing ? "Save Changes" : "Create Request")
+                        </span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =========================================================
+     VIEW REQUEST MODAL
+     ========================================================= -->
+
+@if (ShowViewModal && SelectedRequest != null)
+{
+    <div class="modal-backdrop"
+         @onclick="CloseViewModal">
+
+        <div class="view-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi bi-arrow-left-right"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>Swap Request Details</h2>
+
+                        <p>
+                            Submitted
+                            @SelectedRequest.CreatedAt.ToLocalTime()
+                                .ToString("dd MMM yyyy HH:mm")
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseViewModal">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <div class="modal-body">
+
+                <div class="request-status-header">
+
+                    <div>
+
+                        <span class="detail-label">
+                            Request Status
+                        </span>
+
+                        <span class="status-badge @GetStatusClass(SelectedRequest.Status)">
+                            @GetStatusDisplayName(SelectedRequest.Status)
+                        </span>
+
+                    </div>
+
+                    <div>
+
+                        <span class="detail-label">
+                            Estimated Top-Up
+                        </span>
+
+                        <strong class="detail-price">
+                            K @SelectedRequest.EstimatedTopUpAmount.ToString("N2")
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="details-grid">
+
+                    <div class="detail-card">
+
+                        <h3>Customer</h3>
+
+                        <strong>
+                            @GetCustomerName(SelectedRequest.User)
+                        </strong>
+
+                        @if (!string.IsNullOrWhiteSpace(SelectedRequest.User?.Email))
+                        {
+                            <span>
+                                @SelectedRequest.User.Email
+                            </span>
+                        }
+
+                    </div>
+
+
+                    <div class="detail-card">
+
+                        <h3>Desired Device</h3>
+
+                        <strong>
+                            @SelectedRequest.DesiredDevice
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail-card">
+
+                        <h3>Current Device</h3>
+
+                        <strong>
+                            @SelectedRequest.CurrentDeviceBrand
+                            @SelectedRequest.CurrentDeviceModel
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail-card">
+
+                        <h3>Condition</h3>
+
+                        <span>
+                            @SelectedRequest.DeviceCondition
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                @if (!string.IsNullOrWhiteSpace(SelectedRequest.FaultDescription))
+                {
+                    <div class="detail-block">
+
+                        <h3>
+                            <span class="bi bi-exclamation-triangle"
+                                  aria-hidden="true"></span>
+                            Faults / Damage
+                        </h3>
+
+                        <p>
+                            @SelectedRequest.FaultDescription
+                        </p>
+
+                    </div>
+                }
+
+
+                <div class="detail-block">
+
+                    <h3>
+                        <span class="bi bi-images"
+                              aria-hidden="true"></span>
+                        Device Images
+                    </h3>
+
+                    <div class="image-grid">
+
+                        @if (!string.IsNullOrWhiteSpace(SelectedRequest.DeviceImage1))
+                        {
+                            <img src="@SelectedRequest.DeviceImage1"
+                                 alt="Swap device image 1" />
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(SelectedRequest.DeviceImage2))
+                        {
+                            <img src="@SelectedRequest.DeviceImage2"
+                                 alt="Swap device image 2" />
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(SelectedRequest.DeviceImage3))
+                        {
+                            <img src="@SelectedRequest.DeviceImage3"
+                                 alt="Swap device image 3" />
+                        }
+
+                        @if (string.IsNullOrWhiteSpace(SelectedRequest.DeviceImage1)
+                            && string.IsNullOrWhiteSpace(SelectedRequest.DeviceImage2)
+                            && string.IsNullOrWhiteSpace(SelectedRequest.DeviceImage3))
+                        {
+                            <span class="no-images">
+                                No device images provided.
+                            </span>
+                        }
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button class="btn btn-secondary"
+                        @onclick="CloseViewModal">
+
+                    Close
+
+                </button>
+
+                <button class="btn btn-primary"
+                        @onclick="() => EditRequest(SelectedRequest)">
+
+                    <span class="bi bi-pencil"
+                          aria-hidden="true"></span>
+
+                    Edit Request
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =========================================================
+     DELETE CONFIRMATION
+     ========================================================= -->
+
+@if (ShowDeleteModal && RequestToDelete != null)
+{
+    <div class="modal-backdrop"
+         @onclick="CloseDeleteModal">
+
+        <div class="delete-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="delete-icon">
+
+                <span class="bi bi-trash"
+                      aria-hidden="true"></span>
+
+            </div>
+
+            <h2>Delete Swap Request?</h2>
+
+            <p>
+                Are you sure you want to delete the swap request
+                submitted by
+                <strong>@GetCustomerName(RequestToDelete.User)</strong>?
+            </p>
+
+            <p class="warning-text">
+                This action cannot be undone.
+            </p>
+
+
+            <div class="modal-actions">
+
+                <button class="btn btn-secondary"
+                        @onclick="CloseDeleteModal"
+                        disabled="@IsDeleting">
+
+                    Cancel
+
+                </button>
+
+
+                <button class="btn btn-danger"
+                        @onclick="DeleteRequest"
+                        disabled="@IsDeleting">
+
+                    @if (IsDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-trash"
+                              aria-hidden="true"></span>
+
+                        <span>Delete Request</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
 
 @code {
-    private int currentCount = 0;
 
-    private void IncrementCount()
+    private List<SwapRequest> SwapRequestList = new();
+    private List<ApplicationUser> Customers = new();
+
+    private bool IsLoading = true;
+    private bool IsSaving;
+    private bool IsDeleting;
+
+    private bool ShowSwapModal;
+    private bool ShowViewModal;
+    private bool ShowDeleteModal;
+
+    private SwapRequest? EditingRequest;
+    private SwapRequest? SelectedRequest;
+    private SwapRequest? RequestToDelete;
+
+    private string SearchTerm = string.Empty;
+    private string SelectedStatus = string.Empty;
+
+    private string? StatusMessage;
+    private string? ValidationMessage;
+
+    private bool IsError;
+
+    private bool IsEditing =>
+        EditingRequest != null &&
+        EditingRequest.SwapRequestId != Guid.Empty;
+
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
+
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await LoadData();
     }
+
+
+    // =========================================================
+    // DATA
+    // =========================================================
+
+    private async Task LoadData()
+    {
+        IsLoading = true;
+
+        try
+        {
+            SwapRequestList = await Db.SwapRequests
+                .AsNoTracking()
+                .Include(s => s.User)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+
+            Customers = await Db.Users
+                .AsNoTracking()
+                .OrderBy(u => u.FirstName)
+                .ThenBy(u => u.LastName)
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Unable to load swap requests. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    // =========================================================
+    // FILTERING
+    // =========================================================
+
+    private IEnumerable<SwapRequest> FilteredRequests
+    {
+        get
+        {
+            var requests = SwapRequestList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                requests = requests.Where(r =>
+                    GetCustomerName(r.User)
+                        .Contains(search, StringComparison.OrdinalIgnoreCase)
+                    ||
+                    r.CurrentDeviceBrand
+                        .Contains(search, StringComparison.OrdinalIgnoreCase)
+                    ||
+                    r.CurrentDeviceModel
+                        .Contains(search, StringComparison.OrdinalIgnoreCase)
+                    ||
+                    r.DesiredDevice
+                        .Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (Enum.TryParse<SwapRequestStatus>(
+                    SelectedStatus,
+                    out var status))
+            {
+                requests = requests.Where(r =>
+                    r.Status == status);
+            }
+
+            return requests;
+        }
+    }
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
+    private int TotalRequests =>
+        SwapRequestList.Count;
+
+    private int PendingRequests =>
+        SwapRequestList.Count(r =>
+            r.Status == SwapRequestStatus.Pending);
+
+    private int UnderReviewRequests =>
+        SwapRequestList.Count(r =>
+            r.Status == SwapRequestStatus.UnderReview);
+
+    private int ApprovedRequests =>
+        SwapRequestList.Count(r =>
+            r.Status == SwapRequestStatus.Approved);
+
+    private int CompletedRequests =>
+        SwapRequestList.Count(r =>
+            r.Status == SwapRequestStatus.Completed);
+
+
+    // =========================================================
+    // FILTER CONTROLS
+    // =========================================================
+
+    private void ClearFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedStatus = string.Empty;
+    }
+
+
+    // =========================================================
+    // ADD
+    // =========================================================
+
+    private void OpenAddSwap()
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+
+        EditingRequest = new SwapRequest
+        {
+            SwapRequestId = Guid.Empty,
+            UserId = Guid.Empty,
+            Status = SwapRequestStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            EstimatedTopUpAmount = 0
+        };
+
+        ShowSwapModal = true;
+    }
+
+
+    // =========================================================
+    // EDIT
+    // =========================================================
+
+    private void EditRequest(SwapRequest request)
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+
+        EditingRequest = new SwapRequest
+        {
+            SwapRequestId = request.SwapRequestId,
+            UserId = request.UserId,
+            CurrentDeviceBrand = request.CurrentDeviceBrand,
+            CurrentDeviceModel = request.CurrentDeviceModel,
+            DeviceCondition = request.DeviceCondition,
+            FaultDescription = request.FaultDescription,
+            DesiredDevice = request.DesiredDevice,
+            EstimatedTopUpAmount = request.EstimatedTopUpAmount,
+            DeviceImage1 = request.DeviceImage1,
+            DeviceImage2 = request.DeviceImage2,
+            DeviceImage3 = request.DeviceImage3,
+            Status = request.Status,
+            CreatedAt = request.CreatedAt
+        };
+
+        ShowViewModal = false;
+        ShowSwapModal = true;
+    }
+
+
+    // =========================================================
+    // VIEW
+    // =========================================================
+
+    private void ViewRequest(SwapRequest request)
+    {
+        SelectedRequest = request;
+        ShowViewModal = true;
+    }
+
+
+    private void CloseViewModal()
+    {
+        ShowViewModal = false;
+        SelectedRequest = null;
+    }
+
+
+    // =========================================================
+    // CLOSE ADD / EDIT
+    // =========================================================
+
+    private void CloseSwapModal()
+    {
+        if (IsSaving)
+            return;
+
+        ShowSwapModal = false;
+        EditingRequest = null;
+        ValidationMessage = null;
+    }
+
+
+    private void HandleBackdropClick()
+    {
+        if (!IsSaving)
+        {
+            CloseSwapModal();
+        }
+    }
+
+
+    // =========================================================
+    // SAVE
+    // =========================================================
+
+    private async Task SaveRequest()
+    {
+        if (EditingRequest == null)
+            return;
+
+        ValidationMessage = ValidateRequest();
+
+        if (!string.IsNullOrWhiteSpace(ValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            if (EditingRequest.SwapRequestId == Guid.Empty)
+            {
+                EditingRequest.SwapRequestId = Guid.NewGuid();
+                EditingRequest.CreatedAt = DateTime.UtcNow;
+
+                Db.SwapRequests.Add(EditingRequest);
+
+                await Db.SaveChangesAsync();
+
+                var customerName = GetCustomerName(
+                    Customers.FirstOrDefault(c =>
+                        c.Id == EditingRequest.UserId));
+
+                CloseSwapModal();
+
+                SetStatusMessage(
+                    $"Swap request for {customerName} was successfully created.",
+                    false);
+            }
+            else
+            {
+                var existingRequest = await Db.SwapRequests
+                    .FirstOrDefaultAsync(s =>
+                        s.SwapRequestId ==
+                        EditingRequest.SwapRequestId);
+
+                if (existingRequest == null)
+                {
+                    SetStatusMessage(
+                        "The swap request could not be found.",
+                        true);
+
+                    return;
+                }
+
+                existingRequest.UserId =
+                    EditingRequest.UserId;
+
+                existingRequest.CurrentDeviceBrand =
+                    EditingRequest.CurrentDeviceBrand.Trim();
+
+                existingRequest.CurrentDeviceModel =
+                    EditingRequest.CurrentDeviceModel.Trim();
+
+                existingRequest.DeviceCondition =
+                    EditingRequest.DeviceCondition.Trim();
+
+                existingRequest.FaultDescription =
+                    string.IsNullOrWhiteSpace(
+                        EditingRequest.FaultDescription)
+                        ? null
+                        : EditingRequest.FaultDescription.Trim();
+
+                existingRequest.DesiredDevice =
+                    EditingRequest.DesiredDevice.Trim();
+
+                existingRequest.EstimatedTopUpAmount =
+                    EditingRequest.EstimatedTopUpAmount;
+
+                existingRequest.DeviceImage1 =
+                    CleanImageUrl(EditingRequest.DeviceImage1);
+
+                existingRequest.DeviceImage2 =
+                    CleanImageUrl(EditingRequest.DeviceImage2);
+
+                existingRequest.DeviceImage3 =
+                    CleanImageUrl(EditingRequest.DeviceImage3);
+
+                existingRequest.Status =
+                    EditingRequest.Status;
+
+                await Db.SaveChangesAsync();
+
+                CloseSwapModal();
+
+                SetStatusMessage(
+                    "Swap request was successfully updated.",
+                    false);
+            }
+
+            await LoadData();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The swap request could not be saved because of a database constraint.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while saving the swap request.",
+                true);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // VALIDATION
+    // =========================================================
+
+    private string? ValidateRequest()
+    {
+        if (EditingRequest == null)
+            return "Invalid swap request.";
+
+        if (EditingRequest.UserId == Guid.Empty)
+            return "Please select a customer.";
+
+        if (string.IsNullOrWhiteSpace(
+                EditingRequest.CurrentDeviceBrand))
+            return "Current device brand is required.";
+
+        if (string.IsNullOrWhiteSpace(
+                EditingRequest.CurrentDeviceModel))
+            return "Current device model is required.";
+
+        if (string.IsNullOrWhiteSpace(
+                EditingRequest.DeviceCondition))
+            return "Please describe the device condition.";
+
+        if (string.IsNullOrWhiteSpace(
+                EditingRequest.DesiredDevice))
+            return "Desired device is required.";
+
+        if (EditingRequest.EstimatedTopUpAmount < 0)
+            return "Estimated top-up cannot be negative.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // DELETE
+    // =========================================================
+
+    private void ConfirmDelete(SwapRequest request)
+    {
+        RequestToDelete = request;
+        ShowDeleteModal = true;
+    }
+
+
+    private void CloseDeleteModal()
+    {
+        if (IsDeleting)
+            return;
+
+        ShowDeleteModal = false;
+        RequestToDelete = null;
+    }
+
+
+    private async Task DeleteRequest()
+    {
+        if (RequestToDelete == null)
+            return;
+
+        IsDeleting = true;
+
+        try
+        {
+            var existingRequest = await Db.SwapRequests
+                .FirstOrDefaultAsync(s =>
+                    s.SwapRequestId ==
+                    RequestToDelete.SwapRequestId);
+
+            if (existingRequest == null)
+            {
+                SetStatusMessage(
+                    "The swap request could not be found.",
+                    true);
+
+                return;
+            }
+
+            Db.SwapRequests.Remove(existingRequest);
+
+            await Db.SaveChangesAsync();
+
+            ShowDeleteModal = false;
+            RequestToDelete = null;
+
+            SetStatusMessage(
+                "Swap request was successfully deleted.",
+                false);
+
+            await LoadData();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The swap request could not be deleted because it is being used elsewhere.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while deleting the swap request.",
+                true);
+        }
+        finally
+        {
+            IsDeleting = false;
+        }
+    }
+
+
+    // =========================================================
+    // CUSTOMER HELPERS
+    // =========================================================
+
+    private static string GetCustomerName(ApplicationUser? user)
+    {
+        if (user == null)
+            return "Unknown Customer";
+
+        var name = $"{user.FirstName} {user.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(name)
+            ? user.Email ?? "Unknown Customer"
+            : name;
+    }
+
+
+    private static string GetCustomerInitials(ApplicationUser? user)
+    {
+        if (user == null)
+            return "?";
+
+        var first =
+            string.IsNullOrWhiteSpace(user.FirstName)
+                ? ""
+                : user.FirstName[..1];
+
+        var last =
+            string.IsNullOrWhiteSpace(user.LastName)
+                ? ""
+                : user.LastName[..1];
+
+        var initials = $"{first}{last}".Trim();
+
+        if (!string.IsNullOrWhiteSpace(initials))
+            return initials.ToUpper();
+
+        return user.Email?.Length > 0
+            ? user.Email[..1].ToUpper()
+            : "?";
+    }
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private static string GetStatusDisplayName(
+        SwapRequestStatus status)
+    {
+        return status switch
+        {
+            SwapRequestStatus.UnderReview => "Under Review",
+            _ => status.ToString()
+        };
+    }
+
+
+    private static string GetStatusClass(
+        SwapRequestStatus status)
+    {
+        return status switch
+        {
+            SwapRequestStatus.Pending =>
+                "status-pending",
+
+            SwapRequestStatus.UnderReview =>
+                "status-review",
+
+            SwapRequestStatus.Approved =>
+                "status-approved",
+
+            SwapRequestStatus.Rejected =>
+                "status-rejected",
+
+            SwapRequestStatus.Completed =>
+                "status-completed",
+
+            _ => "status-other"
+        };
+    }
+
+
+    // =========================================================
+    // IMAGE
+    // =========================================================
+
+    private static string? CleanImageUrl(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : value.Trim();
+    }
+
+
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
+
+    private void SetStatusMessage(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+        IsError = error;
+    }
+
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = null;
+        IsError = false;
+    }
+
 }

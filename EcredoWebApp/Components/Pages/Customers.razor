@@ -1,34 +1,1459 @@
-﻿@page "/customers"
-@attribute [StreamRendering]
+@page "/customers"
+@rendermode InteractiveServer
+
+@using EcredoWebApp.Data
+@using EcredoWebApp.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+
+@inject ApplicationDbContext Db
 
 <PageTitle>Customers</PageTitle>
 
-<h1>Customers Content Here</h1>
+<div class="customers-page">
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="page-header">
+
+        <div class="page-heading">
+
+            <div class="heading-icon">
+                <span class="bi bi-people" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Customers</h1>
+                <p>Manage customer accounts and view their activity.</p>
+            </div>
+
+        </div>
+
+        <button type="button"
+                class="btn btn-primary"
+                @onclick="OpenAddCustomer"
+                disabled="@IsSaving">
+
+            <span class="bi bi-person-plus" aria-hidden="true"></span>
+            Add Customer
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         SUCCESS / ERROR MESSAGE
+         ===================================================== -->
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert-message @(IsError ? "alert-error" : "alert-success")">
+
+            <span class="bi @(IsError ? "bi-exclamation-circle" : "bi-check-circle")"
+                  aria-hidden="true"></span>
+
+            <span>@StatusMessage</span>
+
+            <button type="button"
+                    class="alert-close"
+                    @onclick="ClearStatusMessage">
+
+                <span class="bi bi-x-lg" aria-hidden="true"></span>
+
+            </button>
+
+        </div>
+    }
+
+
+    <!-- =====================================================
+         STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-people" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Total Customers</span>
+                <strong>@TotalCustomers</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-person-check" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Active Customers</span>
+                <strong>@ActiveCustomers</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-person-dash" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Inactive Customers</span>
+                <strong>@InactiveCustomers</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-primary">
+                <span class="bi bi-cart-check" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Customers With Orders</span>
+                <strong>@CustomersWithOrders</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FILTERS
+         ===================================================== -->
+
+    <div class="filter-card">
+
+        <div class="search-box">
+
+            <span class="bi bi-search" aria-hidden="true"></span>
+
+            <input type="text"
+                   placeholder="Search by name, email or phone..."
+                   @bind="SearchTerm"
+                   @bind:event="oninput" />
+
+        </div>
+
+
+        <div class="filter-control">
+
+            <label>Status</label>
+
+            <select @bind="SelectedStatus">
+
+                <option value="">All Customers</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+
+            </select>
+
+        </div>
+
+
+        <button type="button"
+                class="clear-filters"
+                @onclick="ClearFilters">
+
+            <span class="bi bi-x-circle" aria-hidden="true"></span>
+            Clear Filters
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         CUSTOMER TABLE
+         ===================================================== -->
+
+    <div class="customers-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Customer Accounts</h2>
+
+                <span>
+                    Showing @FilteredCustomers.Count() of @TotalCustomers customers
+                </span>
+            </div>
+
+        </div>
+
+
+        @if (IsLoading)
+        {
+            <div class="loading-state">
+
+                <span class="spinner-border" aria-hidden="true"></span>
+
+                <p>Loading customers...</p>
+
+            </div>
+        }
+        else if (!FilteredCustomers.Any())
+        {
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <span class="bi bi-people" aria-hidden="true"></span>
+                </div>
+
+                <h3>No customers found</h3>
+
+                <p>
+                    @(string.IsNullOrWhiteSpace(SearchTerm)
+                        && string.IsNullOrWhiteSpace(SelectedStatus)
+                            ? "There are currently no customer accounts."
+                            : "No customers match your current search or filter.")
+                </p>
+
+
+                @if (!string.IsNullOrWhiteSpace(SearchTerm)
+                    || !string.IsNullOrWhiteSpace(SelectedStatus))
+                {
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @onclick="ClearFilters">
+
+                        <span class="bi bi-arrow-counterclockwise"
+                              aria-hidden="true"></span>
+
+                        Clear Filters
+
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            class="btn btn-primary"
+                            @onclick="OpenAddCustomer">
+
+                        <span class="bi bi-person-plus"
+                              aria-hidden="true"></span>
+
+                        Add First Customer
+
+                    </button>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+
+                <table class="customers-table">
+
+                    <thead>
+
+                        <tr>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Orders</th>
+                            <th>Swap Requests</th>
+                            <th>Joined</th>
+                            <th>Status</th>
+                            <th class="actions-column">Actions</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        @foreach (var customer in FilteredCustomers)
+                        {
+                            <tr>
+
+                                <!-- CUSTOMER -->
+
+                                <td>
+
+                                    <div class="customer-cell">
+
+                                        <div class="customer-avatar">
+                                            @GetInitials(customer)
+                                        </div>
+
+                                        <div class="customer-details">
+
+                                            <strong>
+                                                @GetCustomerName(customer)
+                                            </strong>
+
+                                            <span>
+                                                @(customer.Email ?? "No email address")
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- CONTACT -->
+
+                                <td>
+
+                                    @if (!string.IsNullOrWhiteSpace(customer.PhoneNumber))
+                                    {
+                                        <span class="contact-text">
+
+                                            <span class="bi bi-telephone"
+                                                  aria-hidden="true"></span>
+
+                                            @customer.PhoneNumber
+
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted-text">
+                                            No phone number
+                                        </span>
+                                    }
+
+                                </td>
+
+
+                                <!-- ORDERS -->
+
+                                <td>
+
+                                    <span class="activity-count">
+
+                                        <span class="bi bi-bag-check"
+                                              aria-hidden="true"></span>
+
+                                        @customer.OrderCount
+
+                                    </span>
+
+                                </td>
+
+
+                                <!-- SWAPS -->
+
+                                <td>
+
+                                    <span class="activity-count">
+
+                                        <span class="bi bi-arrow-left-right"
+                                              aria-hidden="true"></span>
+
+                                        @customer.SwapRequestCount
+
+                                    </span>
+
+                                </td>
+
+
+                                <!-- JOINED -->
+
+                                <td>
+
+                                    <span class="date-text">
+                                        @customer.CreatedAt
+                                            .ToLocalTime()
+                                            .ToString("dd MMM yyyy")
+                                    </span>
+
+                                </td>
+
+
+                                <!-- STATUS -->
+
+                                <td>
+
+                                    <span class="status-badge @(customer.IsActive
+                                        ? "status-active"
+                                        : "status-inactive")">
+
+                                        @(customer.IsActive
+                                            ? "Active"
+                                            : "Inactive")
+
+                                    </span>
+
+                                </td>
+
+
+                                <!-- ACTIONS -->
+
+                                <td class="actions-column">
+
+                                    <div class="action-buttons">
+
+                                        <button type="button"
+                                                class="icon-button"
+                                                title="View customer"
+                                                @onclick="() => ViewCustomer(customer)">
+
+                                            <span class="bi bi-eye"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+
+                                        <button type="button"
+                                                class="icon-button @(customer.IsActive
+                                                    ? "danger"
+                                                    : "success")"
+                                                title="@(customer.IsActive
+                                                    ? "Deactivate customer"
+                                                    : "Activate customer")"
+                                                @onclick="() => ToggleCustomerStatus(customer)"
+                                                disabled="@IsUpdatingStatus">
+
+                                            <span class="bi @(customer.IsActive
+                                                ? "bi-person-dash"
+                                                : "bi-person-check")"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     ADD CUSTOMER MODAL
+     ========================================================= -->
+
+@if (ShowAddCustomerModal)
+{
+    <div class="modal-backdrop"
+         @onclick="HandleAddCustomerBackdropClick">
+
+        <div class="customer-modal"
+             @onclick:stopPropagation="true">
+
+            <!-- HEADER -->
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="customer-modal-icon">
+                        <span class="bi bi-person-plus"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>Add New Customer</h2>
+
+                        <p>
+                            Create a customer account for your store.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseAddCustomer"
+                        disabled="@IsSaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <!-- BODY -->
+
+            <div class="modal-body">
+
+                @if (!string.IsNullOrWhiteSpace(CustomerValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        <span>@CustomerValidationMessage</span>
+
+                    </div>
+                }
+
+
+                <!-- PERSONAL INFORMATION -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">1</div>
+
+                        <div>
+
+                            <h3>Personal Information</h3>
+
+                            <p>
+                                Enter the customer's basic details.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label for="customerFirstName">
+                                First Name
+                                <span class="required">*</span>
+                            </label>
+
+                            <input id="customerFirstName"
+                                   class="form-control"
+                                   @bind="NewCustomerFirstName"
+                                   placeholder="e.g. John" />
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="customerLastName">
+                                Last Name
+                                <span class="required">*</span>
+                            </label>
+
+                            <input id="customerLastName"
+                                   class="form-control"
+                                   @bind="NewCustomerLastName"
+                                   placeholder="e.g. Banda" />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CONTACT INFORMATION -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">2</div>
+
+                        <div>
+
+                            <h3>Contact Information</h3>
+
+                            <p>
+                                Contact information used for customer records.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerEmail">
+                            Email Address
+                        </label>
+
+                        <input id="customerEmail"
+                               type="email"
+                               class="form-control"
+                               @bind="NewCustomerEmail"
+                               placeholder="e.g. john@example.com" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="customerPhone">
+                            Phone Number
+                        </label>
+
+                        <input id="customerPhone"
+                               type="tel"
+                               class="form-control"
+                               @bind="NewCustomerPhone"
+                               placeholder="e.g. +260 97 1234567" />
+
+                    </div>
+
+                </div>
+
+
+                <!-- ACCOUNT STATUS -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">3</div>
+
+                        <div>
+
+                            <h3>Account Status</h3>
+
+                            <p>
+                                Choose whether this customer is active.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <label class="status-option">
+
+                        <input type="checkbox"
+                               @bind="NewCustomerIsActive" />
+
+                        <span class="status-option-content">
+
+                            <strong>Active customer</strong>
+
+                            <span>
+                                Allow this customer to remain active in the system.
+                            </span>
+
+                        </span>
+
+                    </label>
+
+                </div>
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseAddCustomer"
+                        disabled="@IsSaving">
+
+                    Cancel
+
+                </button>
+
+
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="CreateCustomer"
+                        disabled="@IsSaving">
+
+                    @if (IsSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Creating...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-person-plus"
+                              aria-hidden="true"></span>
+
+                        <span>Create Customer</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =========================================================
+     VIEW CUSTOMER MODAL
+     ========================================================= -->
+
+@if (ShowCustomerModal && SelectedCustomer != null)
+{
+    <div class="modal-backdrop"
+         @onclick="CloseCustomerModal">
+
+        <div class="customer-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="customer-modal-avatar">
+                        @GetInitials(SelectedCustomer)
+                    </div>
+
+                    <div>
+
+                        <h2>
+                            @GetCustomerName(SelectedCustomer)
+                        </h2>
+
+                        <p>
+                            Customer account details
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseCustomerModal">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <div class="modal-body">
+
+                <div class="detail-status-row">
+
+                    <span class="status-badge @(SelectedCustomer.IsActive
+                        ? "status-active"
+                        : "status-inactive")">
+
+                        @(SelectedCustomer.IsActive
+                            ? "Active Account"
+                            : "Inactive Account")
+
+                    </span>
+
+                    <span class="member-since">
+
+                        Member since
+                        @SelectedCustomer.CreatedAt
+                            .ToLocalTime()
+                            .ToString("dd MMM yyyy")
+
+                    </span>
+
+                </div>
+
+
+                <div class="detail-section">
+
+                    <h3>Contact Information</h3>
+
+                    <div class="detail-grid">
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Full Name
+                            </span>
+
+                            <strong>
+                                @GetCustomerName(SelectedCustomer)
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Email
+                            </span>
+
+                            <strong>
+                                @(SelectedCustomer.Email ?? "Not provided")
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Phone
+                            </span>
+
+                            <strong>
+                                @(SelectedCustomer.PhoneNumber ?? "Not provided")
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Account Status
+                            </span>
+
+                            <strong>
+                                @(SelectedCustomer.IsActive
+                                    ? "Active"
+                                    : "Inactive")
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="detail-section">
+
+                    <h3>Customer Activity</h3>
+
+                    <div class="activity-grid">
+
+                        <div class="activity-card">
+
+                            <span class="bi bi-bag-check"
+                                  aria-hidden="true"></span>
+
+                            <strong>
+                                @SelectedCustomer.OrderCount
+                            </strong>
+
+                            <span>Orders</span>
+
+                        </div>
+
+
+                        <div class="activity-card">
+
+                            <span class="bi bi-arrow-left-right"
+                                  aria-hidden="true"></span>
+
+                            <strong>
+                                @SelectedCustomer.SwapRequestCount
+                            </strong>
+
+                            <span>Swap Requests</span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseCustomerModal">
+
+                    Close
+
+                </button>
+
+
+                <button type="button"
+                        class="btn @(SelectedCustomer.IsActive
+                            ? "btn-danger"
+                            : "btn-primary")"
+                        @onclick="() => ToggleCustomerStatus(SelectedCustomer)"
+                        disabled="@IsUpdatingStatus">
+
+                    <span class="bi @(SelectedCustomer.IsActive
+                        ? "bi-person-dash"
+                        : "bi-person-check")"
+                          aria-hidden="true"></span>
+
+                    @(SelectedCustomer.IsActive
+                        ? "Deactivate Customer"
+                        : "Activate Customer")
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
 
 
 @code {
-    private WeatherForecast[]? forecasts;
+
+    // =========================================================
+    // CUSTOMER DATA
+    // =========================================================
+
+    private List<CustomerRow> CustomerList = new();
+
+    private bool IsLoading = true;
+
+    private bool ShowCustomerModal;
+
+    private bool ShowAddCustomerModal;
+
+    private bool IsUpdatingStatus;
+
+    private bool IsSaving;
+
+
+    private CustomerRow? SelectedCustomer;
+
+
+    // =========================================================
+    // FILTERS
+    // =========================================================
+
+    private string SearchTerm = string.Empty;
+
+    private string SelectedStatus = string.Empty;
+
+
+    // =========================================================
+    // NEW CUSTOMER
+    // =========================================================
+
+    private string NewCustomerFirstName = string.Empty;
+
+    private string NewCustomerLastName = string.Empty;
+
+    private string NewCustomerEmail = string.Empty;
+
+    private string NewCustomerPhone = string.Empty;
+
+    private bool NewCustomerIsActive = true;
+
+    private string? CustomerValidationMessage;
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private string? StatusMessage;
+
+    private bool IsError;
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
+    private int TotalCustomers =>
+        CustomerList.Count;
+
+
+    private int ActiveCustomers =>
+        CustomerList.Count(c => c.IsActive);
+
+
+    private int InactiveCustomers =>
+        CustomerList.Count(c => !c.IsActive);
+
+
+    private int CustomersWithOrders =>
+        CustomerList.Count(c => c.OrderCount > 0);
+
+
+    // =========================================================
+    // FILTERED CUSTOMERS
+    // =========================================================
+
+    private IEnumerable<CustomerRow> FilteredCustomers
+    {
+        get
+        {
+            var customers = CustomerList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                customers = customers.Where(c =>
+                    GetCustomerName(c)
+                        .Contains(
+                            search,
+                            StringComparison.OrdinalIgnoreCase)
+                    ||
+                    (!string.IsNullOrWhiteSpace(c.Email)
+                     && c.Email.Contains(
+                         search,
+                         StringComparison.OrdinalIgnoreCase))
+                    ||
+                    (!string.IsNullOrWhiteSpace(c.PhoneNumber)
+                     && c.PhoneNumber.Contains(
+                         search,
+                         StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (SelectedStatus == "active")
+            {
+                customers = customers.Where(c => c.IsActive);
+            }
+            else if (SelectedStatus == "inactive")
+            {
+                customers = customers.Where(c => !c.IsActive);
+            }
+
+            return customers;
+        }
+    }
+
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
 
     protected override async Task OnInitializedAsync()
     {
-        // Simulate asynchronous loading to demonstrate streaming rendering
-        await Task.Delay(500);
-
-        var startDate = DateOnly.FromDateTime(DateTime.Now);
-        var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
-        forecasts = Enumerable.Range(1, 5).Select(index => new WeatherForecast
-        {
-            Date = startDate.AddDays(index),
-            TemperatureC = Random.Shared.Next(-20, 55),
-            Summary = summaries[Random.Shared.Next(summaries.Length)]
-        }).ToArray();
+        await LoadCustomers();
     }
 
-    private class WeatherForecast
+
+    // =========================================================
+    // LOAD CUSTOMERS
+    // =========================================================
+
+    private async Task LoadCustomers()
     {
-        public DateOnly Date { get; set; }
-        public int TemperatureC { get; set; }
-        public string? Summary { get; set; }
-        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+        IsLoading = true;
+
+        try
+        {
+            CustomerList = await Db.Users
+                .AsNoTracking()
+                .OrderByDescending(u => u.CreatedAt)
+                .Select(u => new CustomerRow
+                {
+                    UserId = u.Id,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber,
+                    IsActive = u.IsActive,
+                    CreatedAt = u.CreatedAt,
+                    OrderCount = u.Orders.Count(),
+                    SwapRequestCount = u.SwapRequests.Count()
+                })
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Unable to load customers. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
+
+
+    // =========================================================
+    // FILTER CONTROLS
+    // =========================================================
+
+    private void ClearFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedStatus = string.Empty;
+    }
+
+
+    // =========================================================
+    // ADD CUSTOMER
+    // =========================================================
+
+    private void OpenAddCustomer()
+    {
+        ClearStatusMessage();
+
+        CustomerValidationMessage = null;
+
+        NewCustomerFirstName = string.Empty;
+        NewCustomerLastName = string.Empty;
+        NewCustomerEmail = string.Empty;
+        NewCustomerPhone = string.Empty;
+        NewCustomerIsActive = true;
+
+        ShowAddCustomerModal = true;
+    }
+
+
+    private void CloseAddCustomer()
+    {
+        if (IsSaving)
+            return;
+
+        ShowAddCustomerModal = false;
+
+        CustomerValidationMessage = null;
+
+        NewCustomerFirstName = string.Empty;
+        NewCustomerLastName = string.Empty;
+        NewCustomerEmail = string.Empty;
+        NewCustomerPhone = string.Empty;
+        NewCustomerIsActive = true;
+    }
+
+
+    private void HandleAddCustomerBackdropClick()
+    {
+        if (!IsSaving)
+        {
+            CloseAddCustomer();
+        }
+    }
+
+
+    // =========================================================
+    // CREATE CUSTOMER
+    // =========================================================
+
+    private async Task CreateCustomer()
+    {
+        CustomerValidationMessage = ValidateNewCustomer();
+
+        if (!string.IsNullOrWhiteSpace(CustomerValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            var email = string.IsNullOrWhiteSpace(NewCustomerEmail)
+                ? null
+                : NewCustomerEmail.Trim();
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var emailExists = await Db.Users
+                    .AnyAsync(u =>
+                        u.Email != null &&
+                        u.Email.ToLower() == email.ToLower());
+
+                if (emailExists)
+                {
+                    CustomerValidationMessage =
+                        "A customer with that email address already exists.";
+
+                    return;
+                }
+            }
+
+            var customer = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+
+                FirstName = NewCustomerFirstName.Trim(),
+
+                LastName = NewCustomerLastName.Trim(),
+
+                Email = email,
+
+                UserName = email,
+
+                PhoneNumber = string.IsNullOrWhiteSpace(NewCustomerPhone)
+                    ? null
+                    : NewCustomerPhone.Trim(),
+
+                IsActive = NewCustomerIsActive,
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                customer.NormalizedEmail =
+                    email.ToUpperInvariant();
+
+                customer.NormalizedUserName =
+                    email.ToUpperInvariant();
+            }
+
+            Db.Users.Add(customer);
+
+            await Db.SaveChangesAsync();
+
+            var customerName =
+                $"{customer.FirstName} {customer.LastName}".Trim();
+
+            CloseAddCustomer();
+
+            SetStatusMessage(
+                $"{customerName} was successfully added as a customer.",
+                false);
+
+            await LoadCustomers();
+        }
+        catch (DbUpdateException)
+        {
+            CustomerValidationMessage =
+                "The customer could not be created because of a database constraint. Please check the information and try again.";
+        }
+        catch (Exception)
+        {
+            CustomerValidationMessage =
+                "Something went wrong while creating the customer. Please try again.";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // CUSTOMER VALIDATION
+    // =========================================================
+
+    private string? ValidateNewCustomer()
+    {
+        if (string.IsNullOrWhiteSpace(NewCustomerFirstName))
+            return "First name is required.";
+
+        if (string.IsNullOrWhiteSpace(NewCustomerLastName))
+            return "Last name is required.";
+
+        if (NewCustomerFirstName.Trim().Length > 100)
+            return "First name cannot exceed 100 characters.";
+
+        if (NewCustomerLastName.Trim().Length > 100)
+            return "Last name cannot exceed 100 characters.";
+
+        if (NewCustomerEmail.Trim().Length > 256)
+            return "Email address cannot exceed 256 characters.";
+
+        if (NewCustomerPhone.Trim().Length > 30)
+            return "Phone number cannot exceed 30 characters.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // VIEW CUSTOMER
+    // =========================================================
+
+    private void ViewCustomer(CustomerRow customer)
+    {
+        ClearStatusMessage();
+
+        SelectedCustomer = customer;
+
+        ShowCustomerModal = true;
+    }
+
+
+    private void CloseCustomerModal()
+    {
+        if (IsUpdatingStatus)
+            return;
+
+        ShowCustomerModal = false;
+
+        SelectedCustomer = null;
+    }
+
+
+    // =========================================================
+    // ACTIVATE / DEACTIVATE
+    // =========================================================
+
+    private async Task ToggleCustomerStatus(CustomerRow customer)
+    {
+        IsUpdatingStatus = true;
+
+        var newStatus = !customer.IsActive;
+
+        var customerName = GetCustomerName(customer);
+
+        try
+        {
+            var user = await Db.Users
+                .FirstOrDefaultAsync(u =>
+                    u.Id == customer.UserId);
+
+            if (user == null)
+            {
+                SetStatusMessage(
+                    "The customer account could not be found.",
+                    true);
+
+                return;
+            }
+
+            user.IsActive = newStatus;
+
+            await Db.SaveChangesAsync();
+
+            customer.IsActive = newStatus;
+
+            if (SelectedCustomer?.UserId == customer.UserId)
+            {
+                SelectedCustomer.IsActive = newStatus;
+            }
+
+            SetStatusMessage(
+                newStatus
+                    ? $"{customerName} has been activated."
+                    : $"{customerName} has been deactivated.",
+                false);
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The customer status could not be updated because of a database constraint.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while updating the customer account.",
+                true);
+        }
+        finally
+        {
+            IsUpdatingStatus = false;
+        }
+    }
+
+
+    // =========================================================
+    // CUSTOMER DISPLAY
+    // =========================================================
+
+    private static string GetCustomerName(CustomerRow customer)
+    {
+        var fullName =
+            $"{customer.FirstName} {customer.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(fullName)
+            ? "Unnamed Customer"
+            : fullName;
+    }
+
+
+    private static string GetInitials(CustomerRow customer)
+    {
+        var first = customer.FirstName?.Trim();
+
+        var last = customer.LastName?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(first)
+            && !string.IsNullOrWhiteSpace(last))
+        {
+            return
+                $"{char.ToUpperInvariant(first[0])}" +
+                $"{char.ToUpperInvariant(last[0])}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(first))
+            return first[..1].ToUpperInvariant();
+
+        if (!string.IsNullOrWhiteSpace(last))
+            return last[..1].ToUpperInvariant();
+
+        return "?";
+    }
+
+
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
+
+    private void SetStatusMessage(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+
+        IsError = error;
+    }
+
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = null;
+
+        IsError = false;
+    }
+
+
+    // =========================================================
+    // CUSTOMER ROW
+    // =========================================================
+
+    private sealed class CustomerRow
+    {
+        public Guid UserId { get; set; }
+
+        public string? FirstName { get; set; }
+
+        public string? LastName { get; set; }
+
+        public string? Email { get; set; }
+
+        public string? PhoneNumber { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public int OrderCount { get; set; }
+
+        public int SwapRequestCount { get; set; }
+
+    }
+
 }

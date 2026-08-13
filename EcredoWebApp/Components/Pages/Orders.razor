@@ -1,15 +1,1756 @@
 @page "/orders"
 @rendermode InteractiveServer
 
+@using EcredoWebApp.Data
+@using EcredoWebApp.Enums
+@using EcredoWebApp.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+
+@inject ApplicationDbContext Db
+
 <PageTitle>Orders</PageTitle>
 
-<h1>Orders Content Here</h1>
+<div class="orders-page">
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="page-header">
+
+        <div class="page-heading">
+
+            <div class="heading-icon">
+                <span class="bi bi-receipt" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Orders</h1>
+                <p>Manage customer orders, payments and sales.</p>
+            </div>
+
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="OpenAddOrder"
+                disabled="@IsSaving">
+
+            <span class="bi bi-plus-lg" aria-hidden="true"></span>
+            Add Order
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         STATUS MESSAGE
+         ===================================================== -->
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert-message @(IsError ? "alert-error" : "alert-success")">
+
+            <span class="bi @(IsError ? "bi-exclamation-circle" : "bi-check-circle")"
+                  aria-hidden="true"></span>
+
+            <span>@StatusMessage</span>
+
+            <button type="button"
+                    class="alert-close"
+                    @onclick="ClearStatusMessage">
+
+                <span class="bi bi-x-lg" aria-hidden="true"></span>
+
+            </button>
+
+        </div>
+    }
+
+
+    <!-- =====================================================
+         STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-receipt" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Total Orders</span>
+                <strong>@TotalOrders</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-clock-history" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Pending</span>
+                <strong>@PendingOrders</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-check-circle" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Completed</span>
+                <strong>@CompletedOrders</strong>
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-primary">
+                <span class="bi bi-currency-exchange" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+                <span class="stat-label">Order Value</span>
+                <strong>K @TotalOrderValue.ToString("N2")</strong>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FILTERS
+         ===================================================== -->
+
+    <div class="filter-card">
+
+        <div class="search-box">
+
+            <span class="bi bi-search" aria-hidden="true"></span>
+
+            <input type="text"
+                   placeholder="Search customer or order ID..."
+                   @bind="SearchTerm"
+                   @bind:event="oninput" />
+
+        </div>
+
+
+        <div class="filter-control">
+
+            <label>Status</label>
+
+            <select @bind="SelectedStatus">
+
+                <option value="">All Statuses</option>
+
+                @foreach (var status in Enum.GetValues<OrderStatus>())
+                {
+                    <option value="@status">
+                        @GetOrderStatusDisplayName(status)
+                    </option>
+                }
+
+            </select>
+
+        </div>
+
+
+        <div class="filter-control">
+
+            <label>Payment</label>
+
+            <select @bind="SelectedPaymentType">
+
+                <option value="">All Payment Types</option>
+
+                @foreach (var paymentType in Enum.GetValues<PaymentType>())
+                {
+                    <option value="@paymentType">
+                        @GetPaymentTypeDisplayName(paymentType)
+                    </option>
+                }
+
+            </select>
+
+        </div>
+
+
+        <button class="clear-filters"
+                @onclick="ClearFilters">
+
+            <span class="bi bi-x-circle" aria-hidden="true"></span>
+            Clear Filters
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         ORDERS PANEL
+         ===================================================== -->
+
+    <div class="orders-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Order Management</h2>
+
+                <span>
+                    Showing @FilteredOrders.Count() of @TotalOrders orders
+                </span>
+            </div>
+
+        </div>
+
+
+        @if (IsLoading)
+        {
+            <div class="loading-state">
+
+                <span class="spinner-border" aria-hidden="true"></span>
+
+                <p>Loading orders...</p>
+
+            </div>
+        }
+        else if (!FilteredOrders.Any())
+        {
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <span class="bi bi-receipt" aria-hidden="true"></span>
+                </div>
+
+                <h3>No orders found</h3>
+
+                <p>
+                    @(string.IsNullOrWhiteSpace(SearchTerm)
+                        && string.IsNullOrWhiteSpace(SelectedStatus)
+                        && string.IsNullOrWhiteSpace(SelectedPaymentType)
+                            ? "There are currently no orders in the system."
+                            : "No orders match your current filters.")
+                </p>
+
+                @if (!string.IsNullOrWhiteSpace(SearchTerm)
+                    || !string.IsNullOrWhiteSpace(SelectedStatus)
+                    || !string.IsNullOrWhiteSpace(SelectedPaymentType))
+                {
+                    <button class="btn btn-secondary"
+                            @onclick="ClearFilters">
+
+                        <span class="bi bi-arrow-counterclockwise"
+                              aria-hidden="true"></span>
+
+                        Clear Filters
+
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary"
+                            @onclick="OpenAddOrder">
+
+                        <span class="bi bi-plus-lg"
+                              aria-hidden="true"></span>
+
+                        Add First Order
+
+                    </button>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+
+                <table class="orders-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Order</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th>Items</th>
+                            <th>Payment</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th class="actions-column">Actions</th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        @foreach (var order in FilteredOrders)
+                        {
+                            <tr>
+
+                                <td>
+
+                                    <div class="order-number">
+
+                                        <strong>
+                                            #@GetShortOrderId(order.OrderId)
+                                        </strong>
+
+                                        <span>
+                                            @order.OrderDate.ToLocalTime().ToString("dd MMM yyyy")
+                                        </span>
+
+                                    </div>
+
+                                </td>
+
+
+                                <td>
+
+                                    <div class="customer-cell">
+
+                                        <div class="customer-avatar">
+                                            @GetCustomerInitials(order.User)
+                                        </div>
+
+                                        <div>
+
+                                            <strong>
+                                                @GetCustomerName(order.User)
+                                            </strong>
+
+                                            <span>
+                                                @order.User.Email
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="date-text">
+                                        @order.OrderDate.ToLocalTime().ToString("dd MMM yyyy")
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="items-count">
+                                        @order.OrderItems.Count
+                                        @(order.OrderItems.Count == 1 ? "item" : "items")
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="payment-badge">
+                                        @GetPaymentTypeDisplayName(order.PaymentType)
+                                    </span>
+
+                                </td>
+
+
+                                <td>
+
+                                    <strong class="price">
+                                        K @order.TotalAmount.ToString("N2")
+                                    </strong>
+
+                                </td>
+
+
+                                <td>
+
+                                    <span class="status-badge @GetOrderStatusClass(order.Status)">
+                                        @GetOrderStatusDisplayName(order.Status)
+                                    </span>
+
+                                </td>
+
+
+                                <td class="actions-column">
+
+                                    <div class="action-buttons">
+
+                                        <button class="icon-button"
+                                                title="View order"
+                                                @onclick="() => ViewOrder(order)">
+
+                                            <span class="bi bi-eye"
+                                                  aria-hidden="true"></span>
+
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+        }
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     ADD ORDER MODAL
+     ========================================================= -->
+
+@if (ShowOrderModal)
+{
+    <div class="modal-backdrop"
+         @onclick="HandleBackdropClick">
+
+        <div class="order-modal"
+             @onclick:stopPropagation="true">
+
+            <!-- HEADER -->
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi bi-cart-plus"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>Add New Order</h2>
+
+                        <p>
+                            Create an order on behalf of a customer.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseOrderModal"
+                        disabled="@IsSaving">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <!-- BODY -->
+
+            <div class="modal-body">
+
+                @if (!string.IsNullOrWhiteSpace(ValidationMessage))
+                {
+                    <div class="form-error">
+
+                        <span class="bi bi-exclamation-circle"
+                              aria-hidden="true"></span>
+
+                        @ValidationMessage
+
+                    </div>
+                }
+
+
+                <!-- CUSTOMER -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">1</div>
+
+                        <div>
+                            <h3>Customer</h3>
+                            <p>Select the customer placing the order.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>
+                            Customer
+                            <span class="required">*</span>
+                        </label>
+
+                        <select class="form-control"
+                                @bind="SelectedCustomerId">
+
+                            <option value="@Guid.Empty">
+                                Select customer
+                            </option>
+
+                            @foreach (var customer in Customers)
+                            {
+                                <option value="@customer.Id">
+                                    @GetCustomerName(customer)
+                                    @if (!string.IsNullOrWhiteSpace(customer.Email))
+                                    {
+                                        <text> — @customer.Email</text>
+                                    }
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PRODUCTS -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">2</div>
+
+                        <div>
+                            <h3>Order Items</h3>
+                            <p>Add the products being purchased.</p>
+                        </div>
+
+                    </div>
+
+
+                    @foreach (var item in OrderItems)
+                    {
+                        <div class="order-item-row">
+
+                            <div class="form-group product-select-group">
+
+                                <label>Product</label>
+
+                                <select class="form-control"
+                                        value="@item.ProductId"
+                                        @onchange="e => ProductChanged(item, e)">
+
+                                    <option value="@Guid.Empty">
+                                        Select product
+                                    </option>
+
+                                    @foreach (var product in Products)
+                                    {
+                                        <option value="@product.ProductId">
+                                            @product.Name — K @product.Price.ToString("N2")
+                                            (@product.Quantity in stock)
+                                        </option>
+                                    }
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group quantity-group">
+
+                                <label>Quantity</label>
+
+                                <input type="number"
+                                       min="1"
+                                       max="@GetAvailableQuantity(item)"
+                                       class="form-control"
+                                       value="@item.Quantity"
+                                       @onchange="e => QuantityChanged(item, e)" />
+
+                            </div>
+
+
+                            <div class="item-price">
+
+                                <span>Subtotal</span>
+
+                                <strong>
+                                    K @GetItemTotal(item).ToString("N2")
+                                </strong>
+
+                            </div>
+
+
+                            <button type="button"
+                                    class="remove-item"
+                                    title="Remove item"
+                                    @onclick="() => RemoveOrderItem(item)">
+
+                                <span class="bi bi-trash"
+                                      aria-hidden="true"></span>
+
+                            </button>
+
+                        </div>
+                    }
+
+
+                    <button type="button"
+                            class="add-item-button"
+                            @onclick="AddOrderItem">
+
+                        <span class="bi bi-plus-circle"
+                              aria-hidden="true"></span>
+
+                        Add Product
+
+                    </button>
+
+                </div>
+
+
+                <!-- PAYMENT -->
+
+                <div class="form-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">3</div>
+
+                        <div>
+                            <h3>Payment</h3>
+                            <p>Choose how the customer will pay.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+
+                            <label>
+                                Payment Type
+                                <span class="required">*</span>
+                            </label>
+
+                            <select class="form-control"
+                                    @bind="SelectedPaymentTypeForNewOrder">
+
+                                @foreach (var paymentType in Enum.GetValues<PaymentType>())
+                                {
+                                    <option value="@paymentType">
+                                        @GetPaymentTypeDisplayName(paymentType)
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label>
+                                Initial Payment
+                            </label>
+
+                            <div class="input-prefix">
+
+                                <span>K</span>
+
+                                <input type="number"
+                                       min="0"
+                                       step="0.01"
+                                       max="@CalculatedOrderTotal"
+                                       class="form-control"
+                                       @bind="InitialPayment" />
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="order-summary">
+
+                        <div>
+                            <span>Order Total</span>
+
+                            <strong>
+                                K @CalculatedOrderTotal.ToString("N2")
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Initial Payment</span>
+
+                            <strong>
+                                K @InitialPayment.ToString("N2")
+                            </strong>
+                        </div>
+
+                        <div class="remaining-row">
+                            <span>Remaining Balance</span>
+
+                            <strong>
+                                K @RemainingBalance.ToString("N2")
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- STATUS -->
+
+                <div class="form-section last-section">
+
+                    <div class="form-section-header">
+
+                        <div class="section-number">4</div>
+
+                        <div>
+                            <h3>Order Status</h3>
+                            <p>Set the current state of the order.</p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label>Status</label>
+
+                        <select class="form-control"
+                                @bind="NewOrderStatus">
+
+                            @foreach (var status in Enum.GetValues<OrderStatus>())
+                            {
+                                <option value="@status">
+                                    @GetOrderStatusDisplayName(status)
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseOrderModal"
+                        disabled="@IsSaving">
+
+                    Cancel
+
+                </button>
+
+
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="SaveOrder"
+                        disabled="@IsSaving">
+
+                    @if (IsSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm"
+                              aria-hidden="true"></span>
+
+                        <span>Creating...</span>
+                    }
+                    else
+                    {
+                        <span class="bi bi-check-lg"
+                              aria-hidden="true"></span>
+
+                        <span>Create Order</span>
+                    }
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+
+<!-- =========================================================
+     VIEW ORDER MODAL
+     ========================================================= -->
+
+@if (ShowViewModal && SelectedOrder != null)
+{
+    <div class="modal-backdrop"
+         @onclick="CloseViewModal">
+
+        <div class="view-order-modal"
+             @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+
+                <div class="modal-title">
+
+                    <div class="modal-title-icon">
+                        <span class="bi bi-receipt"
+                              aria-hidden="true"></span>
+                    </div>
+
+                    <div>
+
+                        <h2>
+                            Order #@GetShortOrderId(SelectedOrder.OrderId)
+                        </h2>
+
+                        <p>
+                            @GetCustomerName(SelectedOrder.User)
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <button type="button"
+                        class="modal-close"
+                        @onclick="CloseViewModal">
+
+                    <span class="bi bi-x-lg"
+                          aria-hidden="true"></span>
+
+                </button>
+
+            </div>
+
+
+            <div class="modal-body">
+
+                <div class="order-detail-grid">
+
+                    <div>
+                        <span>Order Date</span>
+                        <strong>
+                            @SelectedOrder.OrderDate.ToLocalTime()
+                                .ToString("dd MMM yyyy HH:mm")
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Payment Type</span>
+                        <strong>
+                            @GetPaymentTypeDisplayName(SelectedOrder.PaymentType)
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Status</span>
+
+                        <select class="status-select"
+                                value="@SelectedOrder.Status"
+                                @onchange="ChangeOrderStatus">
+
+                            @foreach (var status in Enum.GetValues<OrderStatus>())
+                            {
+                                <option value="@status">
+                                    @GetOrderStatusDisplayName(status)
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                    <div>
+                        <span>Total</span>
+                        <strong>
+                            K @SelectedOrder.TotalAmount.ToString("N2")
+                        </strong>
+                    </div>
+
+                </div>
+
+
+                <div class="detail-section">
+
+                    <h3>Order Items</h3>
+
+                    <div class="detail-items">
+
+                        @foreach (var item in SelectedOrder.OrderItems)
+                        {
+                            <div class="detail-item">
+
+                                <div>
+
+                                    <strong>
+                                        @item.Product.Name
+                                    </strong>
+
+                                    <span>
+                                        @item.Quantity ×
+                                        K @item.Price.ToString("N2")
+                                    </span>
+
+                                </div>
+
+                                <strong>
+                                    K @((item.Price * item.Quantity).ToString("N2"))
+                                </strong>
+
+                            </div>
+                        }
+
+                    </div>
+
+                </div>
+
+
+                <div class="detail-section">
+
+                    <h3>Payments</h3>
+
+                    @if (!SelectedOrder.Payments.Any())
+                    {
+                        <p class="no-payments">
+                            No payments have been recorded yet.
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="detail-items">
+
+                            @foreach (var payment in SelectedOrder.Payments.OrderByDescending(p => p.PaymentDate))
+                            {
+                                <div class="detail-item">
+
+                                    <div>
+
+                                        <strong>
+                                            K @payment.Amount.ToString("N2")
+                                        </strong>
+
+                                        <span>
+                                            @payment.PaymentDate.ToLocalTime()
+                                                .ToString("dd MMM yyyy HH:mm")
+                                        </span>
+
+                                    </div>
+
+                                    <span class="payment-status @GetPaymentStatusClass(payment.PaymentStatus)">
+                                        @GetPaymentStatusDisplayName(payment.PaymentStatus)
+                                    </span>
+
+                                </div>
+                            }
+
+                        </div>
+                    }
+
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="CloseViewModal">
+
+                    Close
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
 
 @code {
-    private int currentCount = 0;
 
-    private void IncrementCount()
+    // =========================================================
+    // DATA
+    // =========================================================
+
+    private List<Order> OrderList = new();
+    private List<ApplicationUser> Customers = new();
+    private List<Product> Products = new();
+
+    private List<NewOrderItem> OrderItems = new();
+
+    private bool IsLoading = true;
+    private bool ShowOrderModal;
+    private bool ShowViewModal;
+    private bool IsSaving;
+
+    private Order? SelectedOrder;
+
+    private Guid SelectedCustomerId = Guid.Empty;
+
+    private PaymentType SelectedPaymentTypeForNewOrder =
+        PaymentType.Cash;
+
+    private OrderStatus NewOrderStatus =
+        OrderStatus.Pending;
+
+    private decimal InitialPayment;
+
+
+    // =========================================================
+    // FILTERS
+    // =========================================================
+
+    private string SearchTerm = string.Empty;
+    private string SelectedStatus = string.Empty;
+    private string SelectedPaymentType = string.Empty;
+
+
+    // =========================================================
+    // MESSAGES
+    // =========================================================
+
+    private string? StatusMessage;
+    private string? ValidationMessage;
+    private bool IsError;
+
+
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
+
+    protected override async Task OnInitializedAsync()
     {
-        currentCount++;
+        await LoadData();
     }
+
+
+    // =========================================================
+    // DATA LOADING
+    // =========================================================
+
+    private async Task LoadData()
+    {
+        IsLoading = true;
+
+        try
+        {
+            OrderList = await Db.Orders
+                .AsNoTracking()
+                .Include(o => o.User)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .Include(o => o.Payments)
+                .OrderByDescending(o => o.OrderDate)
+                .ToListAsync();
+
+            Customers = await Db.Users
+                .AsNoTracking()
+                .OrderBy(u => u.FirstName)
+                .ThenBy(u => u.LastName)
+                .ToListAsync();
+
+            Products = await Db.Products
+                .AsNoTracking()
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Unable to load orders. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+
+    // =========================================================
+    // FILTERING
+    // =========================================================
+
+    private IEnumerable<Order> FilteredOrders
+    {
+        get
+        {
+            var orders = OrderList.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                var search = SearchTerm.Trim();
+
+                orders = orders.Where(o =>
+                    GetCustomerName(o.User)
+                        .Contains(search, StringComparison.OrdinalIgnoreCase)
+                    ||
+                    o.User.Email?
+                        .Contains(search, StringComparison.OrdinalIgnoreCase) == true
+                    ||
+                    o.OrderId.ToString()
+                        .Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (Enum.TryParse<OrderStatus>(
+                    SelectedStatus,
+                    out var status))
+            {
+                orders = orders.Where(o => o.Status == status);
+            }
+
+            if (Enum.TryParse<PaymentType>(
+                    SelectedPaymentType,
+                    out var paymentType))
+            {
+                orders = orders.Where(o =>
+                    o.PaymentType == paymentType);
+            }
+
+            return orders;
+        }
+    }
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
+    private int TotalOrders =>
+        OrderList.Count;
+
+    private int PendingOrders =>
+        OrderList.Count(o => o.Status == OrderStatus.Pending);
+
+    private int CompletedOrders =>
+        OrderList.Count(o => o.Status == OrderStatus.Completed);
+
+    private decimal TotalOrderValue =>
+        OrderList.Sum(o => o.TotalAmount);
+
+
+    // =========================================================
+    // FILTER CONTROLS
+    // =========================================================
+
+    private void ClearFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedStatus = string.Empty;
+        SelectedPaymentType = string.Empty;
+    }
+
+
+    // =========================================================
+    // ADD ORDER
+    // =========================================================
+
+    private void OpenAddOrder()
+    {
+        ClearStatusMessage();
+
+        ValidationMessage = null;
+
+        SelectedCustomerId = Guid.Empty;
+
+        SelectedPaymentTypeForNewOrder = PaymentType.Cash;
+
+        NewOrderStatus = OrderStatus.Pending;
+
+        InitialPayment = 0;
+
+        OrderItems = new List<NewOrderItem>
+        {
+            new()
+        };
+
+        ShowOrderModal = true;
+    }
+
+
+    private void AddOrderItem()
+    {
+        OrderItems.Add(new NewOrderItem());
+    }
+
+
+    private void RemoveOrderItem(NewOrderItem item)
+    {
+        if (OrderItems.Count == 1)
+        {
+            item.ProductId = Guid.Empty;
+            item.Quantity = 1;
+            return;
+        }
+
+        OrderItems.Remove(item);
+    }
+
+
+    private void ProductChanged(
+        NewOrderItem item,
+        ChangeEventArgs e)
+    {
+        if (Guid.TryParse(
+                e.Value?.ToString(),
+                out var productId))
+        {
+            item.ProductId = productId;
+
+            var product = Products.FirstOrDefault(p =>
+                p.ProductId == productId);
+
+            if (product != null)
+            {
+                item.UnitPrice = product.Price;
+
+                if (item.Quantity > product.Quantity)
+                    item.Quantity = Math.Max(1, product.Quantity);
+            }
+        }
+        else
+        {
+            item.ProductId = Guid.Empty;
+            item.UnitPrice = 0;
+        }
+    }
+
+
+    private void QuantityChanged(
+        NewOrderItem item,
+        ChangeEventArgs e)
+    {
+        if (int.TryParse(
+                e.Value?.ToString(),
+                out var quantity))
+        {
+            item.Quantity = Math.Max(1, quantity);
+        }
+    }
+
+
+    // =========================================================
+    // ORDER TOTALS
+    // =========================================================
+
+    private decimal CalculatedOrderTotal =>
+        OrderItems.Sum(i => i.UnitPrice * i.Quantity);
+
+
+    private decimal RemainingBalance =>
+        Math.Max(
+            0,
+            CalculatedOrderTotal - InitialPayment);
+
+
+    private decimal GetItemTotal(NewOrderItem item)
+    {
+        return item.UnitPrice * item.Quantity;
+    }
+
+
+    private int GetAvailableQuantity(NewOrderItem item)
+    {
+        var product = Products.FirstOrDefault(p =>
+            p.ProductId == item.ProductId);
+
+        return product?.Quantity ?? 1;
+    }
+
+
+    // =========================================================
+    // SAVE ORDER
+    // =========================================================
+
+    private async Task SaveOrder()
+    {
+        ValidationMessage = ValidateOrder();
+
+        if (!string.IsNullOrWhiteSpace(ValidationMessage))
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            // Reload products from the database so stock
+            // information is current.
+            var productIds = OrderItems
+                .Select(i => i.ProductId)
+                .Distinct()
+                .ToList();
+
+            var databaseProducts = await Db.Products
+                .Where(p => productIds.Contains(p.ProductId))
+                .ToDictionaryAsync(p => p.ProductId);
+
+            foreach (var item in OrderItems)
+            {
+                if (!databaseProducts.TryGetValue(
+                        item.ProductId,
+                        out var product))
+                {
+                    ValidationMessage =
+                        "One of the selected products could not be found.";
+
+                    return;
+                }
+
+                if (item.Quantity > product.Quantity)
+                {
+                    ValidationMessage =
+                        $"There is not enough stock for '{product.Name}'. Available stock: {product.Quantity}.";
+
+                    return;
+                }
+            }
+
+
+            var order = new Order
+            {
+                OrderId = Guid.NewGuid(),
+                UserId = SelectedCustomerId,
+                OrderDate = DateTime.UtcNow,
+                Status = NewOrderStatus,
+                PaymentType = SelectedPaymentTypeForNewOrder,
+                TotalAmount = CalculatedOrderTotal
+            };
+
+
+            foreach (var item in OrderItems)
+            {
+                var product =
+                    databaseProducts[item.ProductId];
+
+                var orderItem = new OrderItem
+                {
+                    OrderItemId = Guid.NewGuid(),
+                    OrderId = order.OrderId,
+                    ProductId = product.ProductId,
+                    Quantity = item.Quantity,
+                    Price = product.Price
+                };
+
+                order.OrderItems.Add(orderItem);
+
+                // Reduce inventory.
+                product.Quantity -= item.Quantity;
+            }
+
+
+            Db.Orders.Add(order);
+
+
+            // =================================================
+            // INITIAL PAYMENT
+            // =================================================
+
+            if (InitialPayment > 0)
+            {
+                var paymentStatus =
+                    InitialPayment >= CalculatedOrderTotal
+                        ? PaymentStatus.Paid
+                        : PaymentStatus.PartiallyPaid;
+
+                order.Payments.Add(new Payment
+                {
+                    PaymentId = Guid.NewGuid(),
+                    OrderId = order.OrderId,
+                    Amount = InitialPayment,
+                    PaymentType = SelectedPaymentTypeForNewOrder,
+                    PaymentStatus = paymentStatus,
+                    PaymentDate = DateTime.UtcNow
+                });
+            }
+
+
+            await Db.SaveChangesAsync();
+
+
+            ShowOrderModal = false;
+
+            var orderId = GetShortOrderId(order.OrderId);
+
+            ResetOrderForm();
+
+            SetStatusMessage(
+                $"Order #{orderId} was successfully created.",
+                false);
+
+            await LoadData();
+        }
+        catch (DbUpdateException)
+        {
+            SetStatusMessage(
+                "The order could not be saved because of a database constraint. Please check the order information and try again.",
+                true);
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "Something went wrong while creating the order. Please try again.",
+                true);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+
+    // =========================================================
+    // VALIDATION
+    // =========================================================
+
+    private string? ValidateOrder()
+    {
+        if (SelectedCustomerId == Guid.Empty)
+            return "Please select a customer.";
+
+        if (!Customers.Any(c =>
+                c.Id == SelectedCustomerId))
+        {
+            return "The selected customer could not be found.";
+        }
+
+        if (!OrderItems.Any())
+            return "Please add at least one product to the order.";
+
+        foreach (var item in OrderItems)
+        {
+            if (item.ProductId == Guid.Empty)
+                return "Please select a product for every order item.";
+
+            if (item.Quantity <= 0)
+                return "Product quantity must be at least 1.";
+
+            var product = Products.FirstOrDefault(p =>
+                p.ProductId == item.ProductId);
+
+            if (product == null)
+                return "One of the selected products could not be found.";
+
+            if (item.Quantity > product.Quantity)
+            {
+                return
+                    $"'{product.Name}' only has {product.Quantity} unit(s) available.";
+            }
+        }
+
+        if (CalculatedOrderTotal <= 0)
+            return "The order total must be greater than zero.";
+
+        if (InitialPayment < 0)
+            return "Initial payment cannot be negative.";
+
+        if (InitialPayment > CalculatedOrderTotal)
+            return "Initial payment cannot exceed the order total.";
+
+        return null;
+    }
+
+
+    // =========================================================
+    // CLOSE ADD ORDER MODAL
+    // =========================================================
+
+    private void CloseOrderModal()
+    {
+        if (IsSaving)
+            return;
+
+        ShowOrderModal = false;
+
+        ResetOrderForm();
+    }
+
+
+    private void HandleBackdropClick()
+    {
+        if (!IsSaving)
+            CloseOrderModal();
+    }
+
+
+    private void ResetOrderForm()
+    {
+        ValidationMessage = null;
+
+        SelectedCustomerId = Guid.Empty;
+
+        SelectedPaymentTypeForNewOrder = PaymentType.Cash;
+
+        NewOrderStatus = OrderStatus.Pending;
+
+        InitialPayment = 0;
+
+        OrderItems.Clear();
+    }
+
+
+    // =========================================================
+    // VIEW ORDER
+    // =========================================================
+
+    private void ViewOrder(Order order)
+    {
+        SelectedOrder = order;
+        ShowViewModal = true;
+    }
+
+
+    private void CloseViewModal()
+    {
+        ShowViewModal = false;
+        SelectedOrder = null;
+    }
+
+
+    // =========================================================
+    // CHANGE ORDER STATUS
+    // =========================================================
+
+    private async Task ChangeOrderStatus(
+        ChangeEventArgs e)
+    {
+        if (SelectedOrder == null)
+            return;
+
+        if (!Enum.TryParse<OrderStatus>(
+                e.Value?.ToString(),
+                out var status))
+        {
+            return;
+        }
+
+        try
+        {
+            var order = await Db.Orders
+                .FirstOrDefaultAsync(o =>
+                    o.OrderId == SelectedOrder.OrderId);
+
+            if (order == null)
+            {
+                SetStatusMessage(
+                    "The order could not be found.",
+                    true);
+
+                return;
+            }
+
+            order.Status = status;
+
+            await Db.SaveChangesAsync();
+
+            SelectedOrder.Status = status;
+
+            SetStatusMessage(
+                $"Order #{GetShortOrderId(order.OrderId)} status was updated.",
+                false);
+
+            await LoadData();
+        }
+        catch (Exception)
+        {
+            SetStatusMessage(
+                "The order status could not be updated.",
+                true);
+        }
+    }
+
+
+    // =========================================================
+    // CUSTOMER HELPERS
+    // =========================================================
+
+    private static string GetCustomerName(
+        ApplicationUser customer)
+    {
+        var name =
+            $"{customer.FirstName} {customer.LastName}".Trim();
+
+        return string.IsNullOrWhiteSpace(name)
+            ? customer.Email ?? "Unknown Customer"
+            : name;
+    }
+
+
+    private static string GetCustomerInitials(
+        ApplicationUser customer)
+    {
+        var first =
+            string.IsNullOrWhiteSpace(customer.FirstName)
+                ? ""
+                : customer.FirstName[..1];
+
+        var last =
+            string.IsNullOrWhiteSpace(customer.LastName)
+                ? ""
+                : customer.LastName[..1];
+
+        var initials = $"{first}{last}".ToUpperInvariant();
+
+        return string.IsNullOrWhiteSpace(initials)
+            ? "C"
+            : initials;
+    }
+
+
+    // =========================================================
+    // DISPLAY HELPERS
+    // =========================================================
+
+    private static string GetShortOrderId(Guid id)
+    {
+        return id.ToString("N")[..8].ToUpperInvariant();
+    }
+
+
+    private static string GetOrderStatusDisplayName(
+        OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Pending => "Pending",
+            OrderStatus.Processing => "Processing",
+            OrderStatus.Completed => "Completed",
+            OrderStatus.Cancelled => "Cancelled",
+            _ => status.ToString()
+        };
+    }
+
+
+    private static string GetPaymentTypeDisplayName(
+        PaymentType paymentType)
+    {
+        return paymentType switch
+        {
+            PaymentType.Cash => "Cash",
+            PaymentType.Layby => "Layby",
+            PaymentType.HirePurchase => "Hire Purchase",
+            _ => paymentType.ToString()
+        };
+    }
+
+
+    private static string GetPaymentStatusDisplayName(
+        PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Pending => "Pending",
+            PaymentStatus.PartiallyPaid => "Partially Paid",
+            PaymentStatus.Paid => "Paid",
+            PaymentStatus.Failed => "Failed",
+            _ => status.ToString()
+        };
+    }
+
+
+    private static string GetOrderStatusClass(
+        OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Pending => "status-pending",
+            OrderStatus.Processing => "status-processing",
+            OrderStatus.Completed => "status-completed",
+            OrderStatus.Cancelled => "status-cancelled",
+            _ => "status-pending"
+        };
+    }
+
+
+    private static string GetPaymentStatusClass(
+        PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Paid => "payment-paid",
+            PaymentStatus.PartiallyPaid => "payment-partial",
+            PaymentStatus.Failed => "payment-failed",
+            _ => "payment-pending"
+        };
+    }
+
+
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
+
+    private void SetStatusMessage(
+        string message,
+        bool error)
+    {
+        StatusMessage = message;
+        IsError = error;
+    }
+
+
+    private void ClearStatusMessage()
+    {
+        StatusMessage = null;
+        IsError = false;
+    }
+
+
+    // =========================================================
+    // NEW ORDER ITEM
+    // =========================================================
+
+    private class NewOrderItem
+    {
+        public Guid ProductId { get; set; }
+
+        public int Quantity { get; set; } = 1;
+
+        public decimal UnitPrice { get; set; }
+    }
+
 }

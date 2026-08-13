@@ -1,15 +1,541 @@
 @page "/payments"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Payments</PageTitle>
 
-<h1>Payments Content Here</h1>
+<div class="payments-page">
 
-@code {
-    private int currentCount = 0;
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
 
-    private void IncrementCount()
-    {
-        currentCount++;
-    }
-}
+    <div class="page-header">
+
+        <div class="page-heading">
+
+            <div class="heading-icon">
+                <span class="bi bi-credit-card" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Payments</h1>
+                <p>Overview of payment activity and payment methods.</p>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         DEMO NOTICE
+         ===================================================== -->
+
+    <div class="demo-notice">
+
+        <div class="demo-notice-icon">
+            <span class="bi bi-info-circle" aria-hidden="true"></span>
+        </div>
+
+        <div>
+            <strong>Payment processing is not enabled yet.</strong>
+
+            <p>
+                This page currently provides a demonstration of how payment
+                information will be presented in the administration system.
+                Actual payment processing and transaction management can be
+                implemented later.
+            </p>
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         PAYMENT STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-cash-stack" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">
+                    Total Payments
+                </span>
+
+                <strong>24</strong>
+
+                <span class="stat-description">
+                    Demo transactions
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-check-circle" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">
+                    Paid
+                </span>
+
+                <strong>17</strong>
+
+                <span class="stat-description">
+                    Completed payments
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-clock-history" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">
+                    Pending
+                </span>
+
+                <strong>5</strong>
+
+                <span class="stat-description">
+                    Awaiting payment
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-danger">
+                <span class="bi bi-exclamation-circle" aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">
+                    Failed
+                </span>
+
+                <strong>2</strong>
+
+                <span class="stat-description">
+                    Unsuccessful payments
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         PAYMENT METHODS
+         ===================================================== -->
+
+    <div class="content-grid">
+
+        <div class="payments-panel">
+
+            <div class="panel-header">
+
+                <div>
+
+                    <h2>Payment Methods</h2>
+
+                    <span>
+                        Supported payment arrangements
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="payment-method-list">
+
+                <!-- CASH -->
+
+                <div class="payment-method">
+
+                    <div class="payment-method-icon">
+                        <span class="bi bi-cash" aria-hidden="true"></span>
+                    </div>
+
+                    <div class="payment-method-content">
+
+                        <strong>Cash</strong>
+
+                        <span>
+                            Direct payment for completed purchases.
+                        </span>
+
+                    </div>
+
+                    <span class="method-status">
+                        Supported
+                    </span>
+
+                </div>
+
+
+                <!-- LAYBY -->
+
+                <div class="payment-method">
+
+                    <div class="payment-method-icon">
+                        <span class="bi bi-calendar-check" aria-hidden="true"></span>
+                    </div>
+
+                    <div class="payment-method-content">
+
+                        <strong>Layby</strong>
+
+                        <span>
+                            Payments made toward a layby agreement.
+                        </span>
+
+                    </div>
+
+                    <span class="method-status">
+                        Supported
+                    </span>
+
+                </div>
+
+
+                <!-- HIRE PURCHASE -->
+
+                <div class="payment-method">
+
+                    <div class="payment-method-icon">
+                        <span class="bi bi-file-earmark-text" aria-hidden="true"></span>
+                    </div>
+
+                    <div class="payment-method-content">
+
+                        <strong>Hire Purchase</strong>
+
+                        <span>
+                            Scheduled payments associated with hire purchase.
+                        </span>
+
+                    </div>
+
+                    <span class="method-status">
+                        Supported
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             PAYMENT STATUS
+             ================================================= -->
+
+        <div class="payments-panel">
+
+            <div class="panel-header">
+
+                <div>
+
+                    <h2>Payment Status</h2>
+
+                    <span>
+                        Status values used by the system
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="status-list">
+
+                <div class="status-item">
+
+                    <span class="status-badge status-pending">
+                        Pending
+                    </span>
+
+                    <p>
+                        Payment has been created but has not yet been completed.
+                    </p>
+
+                </div>
+
+
+                <div class="status-item">
+
+                    <span class="status-badge status-partial">
+                        Partially Paid
+                    </span>
+
+                    <p>
+                        Only part of the expected amount has been received.
+                    </p>
+
+                </div>
+
+
+                <div class="status-item">
+
+                    <span class="status-badge status-paid">
+                        Paid
+                    </span>
+
+                    <p>
+                        The payment has been successfully completed.
+                    </p>
+
+                </div>
+
+
+                <div class="status-item">
+
+                    <span class="status-badge status-failed">
+                        Failed
+                    </span>
+
+                    <p>
+                        The payment attempt was unsuccessful.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         DEMO TRANSACTION TABLE
+         ===================================================== -->
+
+    <div class="payments-panel transactions-panel">
+
+        <div class="panel-header">
+
+            <div>
+
+                <h2>Recent Payment Activity</h2>
+
+                <span>
+                    Demonstration data only
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="table-wrapper">
+
+            <table class="payments-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Reference</th>
+                        <th>Customer</th>
+                        <th>Payment Type</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Date</th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    <tr>
+
+                        <td>
+                            <strong>#PAY-10024</strong>
+                        </td>
+
+                        <td>
+                            John Banda
+                        </td>
+
+                        <td>
+                            Cash
+                        </td>
+
+                        <td>
+                            <strong>K 18,500.00</strong>
+                        </td>
+
+                        <td>
+                            <span class="status-badge status-paid">
+                                Paid
+                            </span>
+                        </td>
+
+                        <td>
+                            11 Aug 2026
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            <strong>#PAY-10023</strong>
+                        </td>
+
+                        <td>
+                            Mary Phiri
+                        </td>
+
+                        <td>
+                            Layby
+                        </td>
+
+                        <td>
+                            <strong>K 2,500.00</strong>
+                        </td>
+
+                        <td>
+                            <span class="status-badge status-partial">
+                                Partially Paid
+                            </span>
+                        </td>
+
+                        <td>
+                            10 Aug 2026
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            <strong>#PAY-10022</strong>
+                        </td>
+
+                        <td>
+                            Peter Mwansa
+                        </td>
+
+                        <td>
+                            Hire Purchase
+                        </td>
+
+                        <td>
+                            <strong>K 1,200.00</strong>
+                        </td>
+
+                        <td>
+                            <span class="status-badge status-pending">
+                                Pending
+                            </span>
+                        </td>
+
+                        <td>
+                            10 Aug 2026
+                        </td>
+
+                    </tr>
+
+
+                    <tr>
+
+                        <td>
+                            <strong>#PAY-10021</strong>
+                        </td>
+
+                        <td>
+                            Alice Mulenga
+                        </td>
+
+                        <td>
+                            Cash
+                        </td>
+
+                        <td>
+                            <strong>K 7,800.00</strong>
+                        </td>
+
+                        <td>
+                            <span class="status-badge status-paid">
+                                Paid
+                            </span>
+                        </td>
+
+                        <td>
+                            09 Aug 2026
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FUTURE IMPLEMENTATION
+         ===================================================== -->
+
+    <div class="future-card">
+
+        <div class="future-icon">
+            <span class="bi bi-tools" aria-hidden="true"></span>
+        </div>
+
+        <div>
+
+            <h3>Payment Processing — Future Feature</h3>
+
+            <p>
+                When payment processing is introduced, this section can be
+                expanded to support payment recording, payment confirmations,
+                transaction references, payment history, receipts, and
+                integration with the application's payment provider.
+            </p>
+
+        </div>
+
+    </div>
+
+</div>

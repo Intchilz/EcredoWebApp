@@ -1,0 +1,387 @@
+@page "/register"
+@layout HomeLayout
+@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using EcredoWebApp.Models
+@using EcredoWebApp.Security
+@using Microsoft.AspNetCore.Identity
+
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create Account | Ecredo</PageTitle>
+
+<div class="register-page">
+
+    <div class="register-container">
+
+        <div class="register-card">
+
+            <div class="register-header">
+
+                <h1>Create Account</h1>
+
+                <p>
+                    Create your Ecredo customer account.
+                </p>
+
+            </div>
+
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="register-error">
+                    @errorMessage
+                </div>
+            }
+
+
+            <EditForm Model="Input"
+                      OnValidSubmit="HandleRegister"
+                      class="register-form">
+
+                <DataAnnotationsValidator />
+
+
+                <div class="form-row">
+
+                    <div class="form-group">
+
+                        <label for="firstName">
+                            First Name
+                        </label>
+
+                        <InputText id="firstName"
+                                   class="form-control"
+                                   @bind-Value="Input.FirstName"
+                                   placeholder="Enter your first name" />
+
+                        <ValidationMessage
+                            For="@(() => Input.FirstName)" />
+
+                    </div>
+
+
+                    <div class="form-group">
+
+                        <label for="lastName">
+                            Last Name
+                        </label>
+
+                        <InputText id="lastName"
+                                   class="form-control"
+                                   @bind-Value="Input.LastName"
+                                   placeholder="Enter your last name" />
+
+                        <ValidationMessage
+                            For="@(() => Input.LastName)" />
+
+                    </div>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="email">
+                        Email Address
+                    </label>
+
+                    <InputText id="email"
+                               type="email"
+                               class="form-control"
+                               @bind-Value="Input.Email"
+                               placeholder="Enter your email address" />
+
+                    <ValidationMessage
+                        For="@(() => Input.Email)" />
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <InputText id="password"
+                               type="password"
+                               class="form-control"
+                               @bind-Value="Input.Password"
+                               placeholder="Create a password" />
+
+                    <ValidationMessage
+                        For="@(() => Input.Password)" />
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="confirmPassword">
+                        Confirm Password
+                    </label>
+
+                    <InputText id="confirmPassword"
+                               type="password"
+                               class="form-control"
+                               @bind-Value="Input.ConfirmPassword"
+                               placeholder="Confirm your password" />
+
+                    <ValidationMessage
+                        For="@(() => Input.ConfirmPassword)" />
+
+                </div>
+
+
+                <div class="account-notice">
+
+                    <span>
+                        Account type:
+                    </span>
+
+                    <strong>
+                        Customer
+                    </strong>
+
+                </div>
+
+
+                <button type="submit"
+                        class="register-button"
+                        disabled="@isSubmitting">
+
+                    @if (isSubmitting)
+                    {
+                        <span>
+                            Creating Account...
+                        </span>
+                    }
+                    else
+                    {
+                        <span>
+                            Create Account
+                        </span>
+                    }
+
+                </button>
+
+            </EditForm>
+
+
+            <div class="login-section">
+
+                <p>
+
+                    Already have an account?
+
+                    <a href="/login"
+                       class="login-link">
+                        Sign in
+                    </a>
+
+                </p>
+
+            </div>
+
+
+            <div class="back-to-store">
+
+                <a href="/store">
+                    ← Back to Store
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+@code {
+
+    private RegisterInputModel Input { get; set; } = new();
+
+    private string? errorMessage;
+
+    private bool isSubmitting;
+
+
+    private async Task HandleRegister()
+    {
+        if (isSubmitting)
+            return;
+
+
+        isSubmitting = true;
+        errorMessage = null;
+
+
+        try
+        {
+            // -------------------------------------------------
+            // CHECK EXISTING ACCOUNT
+            // -------------------------------------------------
+
+            var existingUser =
+                await UserManager.FindByEmailAsync(
+                    Input.Email);
+
+            if (existingUser != null)
+            {
+                errorMessage =
+                    "An account with this email address already exists.";
+
+                return;
+            }
+
+
+            // -------------------------------------------------
+            // CREATE USER
+            // -------------------------------------------------
+
+            var user = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+
+                UserName = Input.Email,
+                Email = Input.Email,
+
+                FirstName = Input.FirstName,
+                LastName = Input.LastName,
+
+                EmailConfirmed = true,
+
+                IsActive = true,
+
+                CreatedAt = DateTime.UtcNow
+            };
+
+
+            var createResult =
+                await UserManager.CreateAsync(
+                    user,
+                    Input.Password);
+
+
+            if (!createResult.Succeeded)
+            {
+                errorMessage = string.Join(
+                    " ",
+                    createResult.Errors
+                        .Select(error =>
+                            error.Description));
+
+                return;
+            }
+
+
+            // -------------------------------------------------
+            // EVERY SELF-REGISTERED ACCOUNT = CUSTOMER
+            // -------------------------------------------------
+
+            var roleResult =
+                await UserManager.AddToRoleAsync(
+                    user,
+                    IdentitySeeder.CustomerRole);
+
+
+            if (!roleResult.Succeeded)
+            {
+                await UserManager.DeleteAsync(user);
+
+                errorMessage =
+                    "The account could not be configured correctly. Please try again.";
+
+                return;
+            }
+
+
+            // -------------------------------------------------
+            // ACCOUNT CREATED
+            // -------------------------------------------------
+            //
+            // We intentionally DO NOT call SignInAsync here.
+            //
+            // The next request to /login will perform the
+            // cookie authentication correctly.
+            // -------------------------------------------------
+
+            NavigationManager.NavigateTo(
+                "/login?registered=true",
+                forceLoad: true);
+        }
+        catch
+        {
+            errorMessage =
+                "An unexpected error occurred while creating your account.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+
+    private sealed class RegisterInputModel
+    {
+        [Required(
+            ErrorMessage = "First name is required.")]
+
+        [StringLength(
+            50,
+            MinimumLength = 2,
+            ErrorMessage =
+                "First name must be between 2 and 50 characters.")]
+
+        public string FirstName { get; set; } = string.Empty;
+
+
+        [Required(
+            ErrorMessage = "Last name is required.")]
+
+        [StringLength(
+            50,
+            MinimumLength = 2,
+            ErrorMessage =
+                "Last name must be between 2 and 50 characters.")]
+
+        public string LastName { get; set; } = string.Empty;
+
+
+        [Required(
+            ErrorMessage = "Email address is required.")]
+
+        [EmailAddress(
+            ErrorMessage = "Enter a valid email address.")]
+
+        public string Email { get; set; } = string.Empty;
+
+
+        [Required(
+            ErrorMessage = "Password is required.")]
+
+        [StringLength(
+            100,
+            MinimumLength = 8,
+            ErrorMessage =
+                "Password must be at least 8 characters long.")]
+
+        public string Password { get; set; } = string.Empty;
+
+
+        [Required(
+            ErrorMessage = "Please confirm your password.")]
+
+        [Compare(
+            nameof(Password),
+            ErrorMessage =
+                "The passwords do not match.")]
+
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

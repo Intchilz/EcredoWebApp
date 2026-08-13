@@ -1,15 +1,748 @@
 @page "/reports"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
 
 <PageTitle>Reports</PageTitle>
 
-<h1>Reports Content Here</h1>
+<div class="reports-page">
+
+    <!-- =====================================================
+         PAGE HEADER
+         ===================================================== -->
+
+    <div class="page-header">
+
+        <div class="page-heading">
+
+            <div class="heading-icon">
+                <span class="bi bi-bar-chart-line" aria-hidden="true"></span>
+            </div>
+
+            <div>
+                <h1>Reports</h1>
+                <p>View business performance and operational summaries.</p>
+            </div>
+
+        </div>
+
+        <div class="header-actions">
+
+            <select class="period-select" @bind="SelectedPeriod">
+                <option value="This Month">This Month</option>
+                <option value="Last Month">Last Month</option>
+                <option value="This Year">This Year</option>
+            </select>
+
+            <button class="btn btn-primary"
+                    @onclick="GenerateReport">
+
+                <span class="bi bi-file-earmark-bar-graph"
+                      aria-hidden="true"></span>
+
+                Generate Report
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         STATUS MESSAGE
+         ===================================================== -->
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <div class="alert-message">
+
+            <span class="bi bi-check-circle"
+                  aria-hidden="true"></span>
+
+            <span>@StatusMessage</span>
+
+            <button type="button"
+                    class="alert-close"
+                    @onclick="ClearStatus">
+
+                <span class="bi bi-x-lg"
+                      aria-hidden="true"></span>
+
+            </button>
+
+        </div>
+    }
+
+
+    <!-- =====================================================
+         OVERVIEW STATISTICS
+         ===================================================== -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-icon">
+                <span class="bi bi-currency-exchange"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">Total Sales</span>
+
+                <strong>K @TotalSales.ToString("N2")</strong>
+
+                <small>This month</small>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-success">
+                <span class="bi bi-cart-check"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">Total Orders</span>
+
+                <strong>@TotalOrders</strong>
+
+                <small>Orders placed</small>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-primary">
+                <span class="bi bi-people"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">Customers</span>
+
+                <strong>@TotalCustomers</strong>
+
+                <small>@NewCustomers new this month</small>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-icon stat-icon-warning">
+                <span class="bi bi-box-seam"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="stat-content">
+
+                <span class="stat-label">Inventory Value</span>
+
+                <strong>K @InventoryValue.ToString("N2")</strong>
+
+                <small>Current stock value</small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         REPORT SECTIONS
+         ===================================================== -->
+
+    <div class="reports-grid">
+
+        <!-- SALES REPORT -->
+
+        <div class="report-card">
+
+            <div class="report-card-header">
+
+                <div class="report-icon">
+                    <span class="bi bi-graph-up"
+                          aria-hidden="true"></span>
+                </div>
+
+                <div>
+                    <h2>Sales Summary</h2>
+                    <p>Overview of sales performance.</p>
+                </div>
+
+            </div>
+
+            <div class="report-list">
+
+                <div class="report-row">
+                    <span>Total Sales</span>
+                    <strong>K @TotalSales.ToString("N2")</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Total Orders</span>
+                    <strong>@TotalOrders</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Completed Orders</span>
+                    <strong>@CompletedOrders</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Average Order Value</span>
+                    <strong>K @AverageOrderValue.ToString("N2")</strong>
+                </div>
+
+            </div>
+
+            <button class="report-button"
+                    @onclick='() => GenerateSpecificReport("Sales")'>
+
+                <span class="bi bi-file-earmark-text"
+                      aria-hidden="true"></span>
+
+                Generate Sales Report
+
+            </button>
+
+        </div>
+
+
+        <!-- ORDERS REPORT -->
+
+        <div class="report-card">
+
+            <div class="report-card-header">
+
+                <div class="report-icon">
+                    <span class="bi bi-cart3"
+                          aria-hidden="true"></span>
+                </div>
+
+                <div>
+                    <h2>Order Summary</h2>
+                    <p>Current order activity.</p>
+                </div>
+
+            </div>
+
+            <div class="report-list">
+
+                <div class="report-row">
+                    <span>Pending</span>
+                    <strong>@PendingOrders</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Processing</span>
+                    <strong>@ProcessingOrders</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Completed</span>
+                    <strong>@CompletedOrders</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Cancelled</span>
+                    <strong class="danger-text">@CancelledOrders</strong>
+                </div>
+
+            </div>
+
+            <button class="report-button"
+                    @onclick='() => GenerateSpecificReport("Orders")'>
+
+                <span class="bi bi-file-earmark-text"
+                      aria-hidden="true"></span>
+
+                Generate Order Report
+
+            </button>
+
+        </div>
+
+
+        <!-- CUSTOMER REPORT -->
+
+        <div class="report-card">
+
+            <div class="report-card-header">
+
+                <div class="report-icon">
+                    <span class="bi bi-people"
+                          aria-hidden="true"></span>
+                </div>
+
+                <div>
+                    <h2>Customer Summary</h2>
+                    <p>Customer registration activity.</p>
+                </div>
+
+            </div>
+
+            <div class="report-list">
+
+                <div class="report-row">
+                    <span>Total Customers</span>
+                    <strong>@TotalCustomers</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>New Customers</span>
+                    <strong>@NewCustomers</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Active Customers</span>
+                    <strong>@ActiveCustomers</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Inactive Customers</span>
+                    <strong>@InactiveCustomers</strong>
+                </div>
+
+            </div>
+
+            <button class="report-button"
+                    @onclick='() => GenerateSpecificReport("Customers")'>
+
+                <span class="bi bi-file-earmark-text"
+                      aria-hidden="true"></span>
+
+                Generate Customer Report
+
+            </button>
+
+        </div>
+
+
+        <!-- INVENTORY REPORT -->
+
+        <div class="report-card">
+
+            <div class="report-card-header">
+
+                <div class="report-icon">
+                    <span class="bi bi-box-seam"
+                          aria-hidden="true"></span>
+                </div>
+
+                <div>
+                    <h2>Inventory Summary</h2>
+                    <p>Overview of current inventory.</p>
+                </div>
+
+            </div>
+
+            <div class="report-list">
+
+                <div class="report-row">
+                    <span>Total Products</span>
+                    <strong>@TotalProducts</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>In Stock</span>
+                    <strong class="success-text">@ProductsInStock</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Low Stock</span>
+                    <strong class="warning-text">@LowStockProducts</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Out of Stock</span>
+                    <strong class="danger-text">@OutOfStockProducts</strong>
+                </div>
+
+            </div>
+
+            <button class="report-button"
+                    @onclick='() => GenerateSpecificReport("Inventory")'>
+
+                <span class="bi bi-file-earmark-text"
+                      aria-hidden="true"></span>
+
+                Generate Inventory Report
+
+            </button>
+
+        </div>
+
+
+        <!-- SWAP REPORT -->
+
+        <div class="report-card">
+
+            <div class="report-card-header">
+
+                <div class="report-icon">
+                    <span class="bi bi-arrow-left-right"
+                          aria-hidden="true"></span>
+                </div>
+
+                <div>
+                    <h2>Swap Summary</h2>
+                    <p>Overview of customer swap requests.</p>
+                </div>
+
+            </div>
+
+            <div class="report-list">
+
+                <div class="report-row">
+                    <span>Pending</span>
+                    <strong>@PendingSwaps</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Under Review</span>
+                    <strong>@SwapsUnderReview</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Approved</span>
+                    <strong>@ApprovedSwaps</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Completed</span>
+                    <strong class="success-text">@CompletedSwaps</strong>
+                </div>
+
+            </div>
+
+            <button class="report-button"
+                    @onclick='() => GenerateSpecificReport("Swaps")'>
+
+                <span class="bi bi-file-earmark-text"
+                      aria-hidden="true"></span>
+
+                Generate Swap Report
+
+            </button>
+
+        </div>
+
+
+        <!-- PAYMENT REPORT -->
+
+        <div class="report-card">
+
+            <div class="report-card-header">
+
+                <div class="report-icon">
+                    <span class="bi bi-credit-card"
+                          aria-hidden="true"></span>
+                </div>
+
+                <div>
+                    <h2>Payment Summary</h2>
+                    <p>Overview of payment statuses.</p>
+                </div>
+
+            </div>
+
+            <div class="report-list">
+
+                <div class="report-row">
+                    <span>Paid</span>
+                    <strong class="success-text">@PaidPayments</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Partially Paid</span>
+                    <strong>@PartiallyPaidPayments</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Pending</span>
+                    <strong class="warning-text">@PendingPayments</strong>
+                </div>
+
+                <div class="report-row">
+                    <span>Failed</span>
+                    <strong class="danger-text">@FailedPayments</strong>
+                </div>
+
+            </div>
+
+            <button class="report-button"
+                    @onclick='() => GenerateSpecificReport("Payments")'>
+
+                <span class="bi bi-file-earmark-text"
+                      aria-hidden="true"></span>
+
+                Generate Payment Report
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         ADMIN / SYSTEM REPORTS
+         ===================================================== -->
+
+    <div class="section-heading">
+
+        <div>
+            <h2>Administrative Reports</h2>
+            <p>General information about the system.</p>
+        </div>
+
+    </div>
+
+
+    <div class="admin-reports">
+
+        <div class="admin-report-card">
+
+            <div class="admin-report-icon">
+                <span class="bi bi-person-badge"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="admin-report-content">
+
+                <h3>Admin Users</h3>
+
+                <p>
+                    Number of administrator accounts currently registered.
+                </p>
+
+                <strong>@AdminUsers</strong>
+
+            </div>
+
+        </div>
+
+
+        <div class="admin-report-card">
+
+            <div class="admin-report-icon">
+                <span class="bi bi-person-check"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="admin-report-content">
+
+                <h3>Active Users</h3>
+
+                <p>
+                    Users currently active in the system.
+                </p>
+
+                <strong>@ActiveUsers</strong>
+
+            </div>
+
+        </div>
+
+
+        <div class="admin-report-card">
+
+            <div class="admin-report-icon">
+                <span class="bi bi-boxes"
+                      aria-hidden="true"></span>
+            </div>
+
+            <div class="admin-report-content">
+
+                <h3>Product Categories</h3>
+
+                <p>
+                    Categories currently available in the catalog.
+                </p>
+
+                <strong>@ProductCategories</strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         REPORT NOTE
+         ===================================================== -->
+
+    <div class="report-note">
+
+        <span class="bi bi-info-circle"
+              aria-hidden="true"></span>
+
+        <div>
+
+            <strong>Reports are currently in preview mode.</strong>
+
+            <p>
+                The figures displayed on this page are demonstration data.
+                Live report generation and database-driven reporting can be
+                connected when the reporting functionality is implemented.
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
 
 @code {
-    private int currentCount = 0;
 
-    private void IncrementCount()
+    // =========================================================
+    // REPORT PERIOD
+    // =========================================================
+
+    private string SelectedPeriod = "This Month";
+
+
+    // =========================================================
+    // OVERVIEW DATA
+    // =========================================================
+
+    private decimal TotalSales = 125450.00m;
+
+    private int TotalOrders = 84;
+
+    private int TotalCustomers = 126;
+
+    private int NewCustomers = 18;
+
+    private decimal InventoryValue = 340200.00m;
+
+
+    // =========================================================
+    // ORDER DATA
+    // =========================================================
+
+    private int PendingOrders = 12;
+
+    private int ProcessingOrders = 7;
+
+    private int CompletedOrders = 61;
+
+    private int CancelledOrders = 4;
+
+
+    private decimal AverageOrderValue =>
+        TotalOrders == 0
+            ? 0
+            : TotalSales / TotalOrders;
+
+
+    // =========================================================
+    // CUSTOMER DATA
+    // =========================================================
+
+    private int ActiveCustomers = 112;
+
+    private int InactiveCustomers = 14;
+
+
+    // =========================================================
+    // INVENTORY DATA
+    // =========================================================
+
+    private int TotalProducts = 73;
+
+    private int ProductsInStock = 68;
+
+    private int LowStockProducts = 9;
+
+    private int OutOfStockProducts = 5;
+
+
+    // =========================================================
+    // SWAP DATA
+    // =========================================================
+
+    private int PendingSwaps = 6;
+
+    private int SwapsUnderReview = 4;
+
+    private int ApprovedSwaps = 3;
+
+    private int CompletedSwaps = 8;
+
+
+    // =========================================================
+    // PAYMENT DATA
+    // =========================================================
+
+    private int PaidPayments = 52;
+
+    private int PartiallyPaidPayments = 14;
+
+    private int PendingPayments = 11;
+
+    private int FailedPayments = 2;
+
+
+    // =========================================================
+    // ADMINISTRATIVE DATA
+    // =========================================================
+
+    private int AdminUsers = 4;
+
+    private int ActiveUsers = 118;
+
+    private int ProductCategories = 9;
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private string? StatusMessage;
+
+
+    // =========================================================
+    // GENERATE REPORT
+    // =========================================================
+
+    private void GenerateReport()
     {
-        currentCount++;
+        StatusMessage =
+            $"{SelectedPeriod} report generated successfully. " +
+            "Report generation is currently in preview mode.";
     }
+
+
+    private void GenerateSpecificReport(string reportName)
+    {
+        StatusMessage =
+            $"{reportName} report generated successfully. " +
+            "Report generation is currently in preview mode.";
+    }
+
+
+    private void ClearStatus()
+    {
+        StatusMessage = null;
+    }
+
 }
