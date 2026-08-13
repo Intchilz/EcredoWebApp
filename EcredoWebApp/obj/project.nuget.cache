@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "eksWOxTjVAc=",
+  "dgSpecHash": "Giy0vxdJh/A=",
   "success": true,
-  "projectFilePath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj",
+  "projectFilePath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\lchil\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\lchil\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.11\\microsoft.aspnetcore.app.internal.assets.10.0.11.nupkg.sha512",

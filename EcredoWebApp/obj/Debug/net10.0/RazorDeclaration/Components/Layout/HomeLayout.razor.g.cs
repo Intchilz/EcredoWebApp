@@ -11,7 +11,6 @@ namespace EcredoWebApp.Components.Layout
     using global::System.Collections.Generic;
     using global::System.Linq;
     using global::System.Threading.Tasks;
-    using global::Microsoft.AspNetCore.Components;
 #nullable restore
 #line (1,2)-(1,23) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\_Imports.razor"
 using System.Net.Http
@@ -78,6 +77,18 @@ using EcredoWebApp.Components.Layout
 
 #nullable disable
     ;
+#nullable restore
+#line (2,2)-(2,39) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\HomeLayout.razor"
+using Microsoft.AspNetCore.Components
+
+#nullable disable
+    ;
+#nullable restore
+#line (3,2)-(3,53) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\HomeLayout.razor"
+using Microsoft.AspNetCore.Components.Authorization
+
+#nullable disable
+    ;
     #line default
     #line hidden
     #nullable restore
@@ -98,10 +109,20 @@ LayoutComponentBase
         }
         #pragma warning restore 1998
 #nullable restore
-#line (79,8)-(92,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\HomeLayout.razor"
+#line (99,8)-(123,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\HomeLayout.razor"
 
 
+    private bool isUserSignedIn;
+    private bool isAdmin;
     private bool menuOpen = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        isUserSignedIn = user.Identity?.IsAuthenticated ?? false;
+        isAdmin = user.IsInRole("Admin");
+    }
 
     private void ToggleMenu()
     {
@@ -113,10 +134,29 @@ LayoutComponentBase
         menuOpen = false;
     }
 
+
 #line default
 #line hidden
 #nullable disable
 
+        [global::Microsoft.AspNetCore.Components.InjectAttribute] private 
+#nullable restore
+#line (4,9)-(4,36) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\HomeLayout.razor"
+AuthenticationStateProvider
+
+#line default
+#line hidden
+#nullable disable
+         
+#nullable restore
+#line (4,37)-(4,64) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\HomeLayout.razor"
+AuthenticationStateProvider
+
+#line default
+#line hidden
+#nullable disable
+         { get; set; }
+         = default!;
     }
 }
 #pragma warning restore 1591

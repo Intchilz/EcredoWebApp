@@ -78,6 +78,12 @@ using EcredoWebApp.Components.Layout
 
 #nullable disable
     ;
+#nullable restore
+#line (1,2)-(1,53) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\App.razor"
+using Microsoft.AspNetCore.Components.Authorization
+
+#nullable disable
+    ;
     #line default
     #line hidden
     #nullable restore

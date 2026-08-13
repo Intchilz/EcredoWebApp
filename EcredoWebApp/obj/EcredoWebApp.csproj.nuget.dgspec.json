@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj": {}
+    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj": {}
   },
   "projects": {
-    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj": {
+    "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj",
+        "projectUniqueName": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj",
         "projectName": "EcredoWebApp",
-        "projectPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\EcredoWebApp.csproj",
+        "projectPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\EcredoWebApp.csproj",
         "packagesPath": "C:\\Users\\lchil\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\ecredowebapp\\obj\\",
+        "outputPath": "C:\\Users\\lchil\\OneDrive\\Desktop\\EcredoWebApp\\EcredoWebApp\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\lchil\\AppData\\Roaming\\NuGet\\NuGet.Config"

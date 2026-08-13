@@ -4,13 +4,14 @@
 #pragma warning disable 0649
 #pragma warning disable 0169
 
-namespace EcredoWebApp.Components.Layout
+namespace EcredoWebApp.Components.Pages.Account
 {
     #line default
     using global::System;
     using global::System.Collections.Generic;
     using global::System.Linq;
     using global::System.Threading.Tasks;
+    using global::Microsoft.AspNetCore.Components;
 #nullable restore
 #line (1,2)-(1,23) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\_Imports.razor"
 using System.Net.Http
@@ -77,36 +78,29 @@ using EcredoWebApp.Components.Layout
 
 #nullable disable
     ;
-#nullable restore
-#line (2,2)-(2,39) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-using Microsoft.AspNetCore.Components
-
-#nullable disable
-    ;
-#nullable restore
-#line (3,2)-(3,53) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-using Microsoft.AspNetCore.Components.Authorization
-
-#nullable disable
-    ;
-#nullable restore
-#line (4,2)-(4,30) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-using System.Security.Claims
-
-#nullable disable
-    ;
     #line default
     #line hidden
-    #nullable restore
-    public partial class StoreLayout : 
+    [global::Microsoft.AspNetCore.Components.LayoutAttribute(typeof(
 #nullable restore
-#line (1,11)-(1,30) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-LayoutComponentBase
+#line (3,9)-(3,19) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Account\AccessDenied.razor"
+HomeLayout
 
 #line default
 #line hidden
 #nullable disable
+    ))]
+    [global::Microsoft.AspNetCore.Components.RouteAttribute(
+    // language=Route,Component
+#nullable restore
+#line (1,7)-(1,30) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Pages\Account\AccessDenied.razor"
+"/Account/AccessDenied"
 
+#line default
+#line hidden
+#nullable disable
+    )]
+    #nullable restore
+    public partial class AccessDenied : global::Microsoft.AspNetCore.Components.ComponentBase
     #nullable disable
     {
         #pragma warning disable 1998
@@ -114,54 +108,6 @@ LayoutComponentBase
         {
         }
         #pragma warning restore 1998
-#nullable restore
-#line (100,8)-(123,1) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-
-    private bool isUserSignedIn = false;
-    private bool isAdmin = false;
-    private bool menuOpen = false;
-
-    protected override async Task OnInitializedAsync()
-    {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        isUserSignedIn = user.Identity?.IsAuthenticated ?? false;
-        isAdmin = user.IsInRole("Admin");
-    }
-
-    private void ToggleMenu()
-    {
-        menuOpen = !menuOpen;
-    }
-
-    private void CloseMenu()
-    {
-        menuOpen = false;
-    }
-
-#line default
-#line hidden
-#nullable disable
-
-        [global::Microsoft.AspNetCore.Components.InjectAttribute] private 
-#nullable restore
-#line (5,9)-(5,36) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-AuthenticationStateProvider
-
-#line default
-#line hidden
-#nullable disable
-         
-#nullable restore
-#line (5,37)-(5,64) "c:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\Components\Layout\StoreLayout.razor"
-AuthenticationStateProvider
-
-#line default
-#line hidden
-#nullable disable
-         { get; set; }
-         = default!;
     }
 }
 #pragma warning restore 1591
