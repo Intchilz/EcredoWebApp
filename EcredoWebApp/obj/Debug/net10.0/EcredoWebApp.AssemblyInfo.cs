@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EcredoWebApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+16d73ddfc3890516a6d1d93b7a58bdb6ed52581d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a610dac5f1d9a993eb87513e94f921e292a8b869")]
 [assembly: System.Reflection.AssemblyProductAttribute("EcredoWebApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EcredoWebApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

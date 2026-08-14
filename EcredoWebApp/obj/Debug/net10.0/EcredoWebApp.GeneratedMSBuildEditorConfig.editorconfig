@@ -20,109 +20,105 @@ build_property.TargetFrameworkVersion = v10.0
 build_property.EntryPointFilePath = 
 build_property.RootNamespace = EcredoWebApp
 build_property.RootNamespace = EcredoWebApp
-build_property.ProjectDir = C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\
+build_property.ProjectDir = C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 10.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp
+build_property.MSBuildProjectDirectory = C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\EcredoWebApp
 build_property._RazorSourceGeneratorDebug = 
 build_property.EffectiveAnalysisLevelStyle = 10.0
 build_property.EnableCodeStyleSeverity = 
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/App.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/App.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Error.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Error.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/NotFound.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/NotFound.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RGb3VuZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Routes.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Routes.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/_Imports.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/_Imports.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Layout/HomeLayout.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Layout/HomeLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcSG9tZUxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-hdc7tf8sgd
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Layout/MainLayout.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Layout/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-hflu1fb5qw
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Layout/NavMenu.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Layout/NavMenu.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-andywsix8l
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Layout/ReconnectModal.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Layout/ReconnectModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcUmVjb25uZWN0TW9kYWwucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-ou9drptf6u
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Layout/StoreLayout.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Layout/StoreLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcU3RvcmVMYXlvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-bt0pyxvjw2
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Account/AccessDenied.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Account/AccessDenied.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBY2NvdW50XEFjY2Vzc0RlbmllZC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-zvcvlgolrk
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Account/Login.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBY2NvdW50XExvZ2luLnJhem9y
-build_metadata.AdditionalFiles.CssScope = b-7vrm0ophbv
-
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Administrator.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Administrator.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pbmlzdHJhdG9yLnJhem9y
 build_metadata.AdditionalFiles.CssScope = b-3ppu4s1v7i
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Customers.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Customers.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDdXN0b21lcnMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-z7j0z7xklp
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Dashboard.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Dashboard.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xEYXNoYm9hcmQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-1njpjv2j7z
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Home.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Home.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
 build_metadata.AdditionalFiles.CssScope = b-5if5cg4svy
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Login.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Login.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMb2dpbi5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-ihncmuhung
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Orders.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Orders.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xPcmRlcnMucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-72x4ahga63
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Payments.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Payments.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQYXltZW50cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-7b76gar2oj
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Products.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Products.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xQcm9kdWN0cy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-sr38kb9rmx
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Register.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Register.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZWdpc3Rlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-hczl3bsf11
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Reports.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Reports.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXBvcnRzLnJhem9y
 build_metadata.AdditionalFiles.CssScope = b-xs4zbzngi7
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Store.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Store.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdG9yZS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-dhsddypsyw
 
-[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/ecredowebapp/Components/Pages/Swaps.razor]
+[C:/Users/lchil/OneDrive/Desktop/EcredoWebApp/EcredoWebApp/Components/Pages/Swaps.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTd2Fwcy5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-dzcpyux0wc
