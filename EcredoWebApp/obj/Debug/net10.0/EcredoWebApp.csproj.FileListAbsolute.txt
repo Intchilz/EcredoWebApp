@@ -189,6 +189,5 @@ C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\scop
 C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\scopedcss\Components\Layout\StoreLayout.razor.rz.scp.css
 C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\scopedcss\Components\Pages\Store.razor.rz.scp.css
 C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\scopedcss\Components\Pages\Account\AccessDenied.razor.rz.scp.css
-C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\scopedcss\Components\Pages\Account\Login.razor.rz.scp.css
-C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\compressed\7noqf1fjch-{0}-sw6ccznhcb-sw6ccznhcb.gz
-C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\compressed\1y4owbva90-{0}-sw6ccznhcb-sw6ccznhcb.gz
+C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\compressed\7noqf1fjch-{0}-8xgnzejksn-8xgnzejksn.gz
+C:\Users\lchil\OneDrive\Desktop\EcredoWebApp\ecredowebapp\obj\Debug\net10.0\compressed\1y4owbva90-{0}-8xgnzejksn-8xgnzejksn.gz
