@@ -17,6 +17,8 @@
     margin-bottom: 2rem;
 }
 
+
+
 .dashboard-header h1 {
     margin: 0;
     font-size: 2rem;
@@ -427,6 +429,12 @@
     }
 }
 
+@media (min-width:701px) {
+    .dashboard-header a {
+    display: none;
+}
+}
+
 
 @media (max-width: 700px) {
 
@@ -438,6 +446,23 @@
     .dashboard-header {
         flex-direction: column;
         gap: 1rem;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.7rem;
+    }
+
+    .dashboard-header a {
+        text-decoration: none;
+        background-color: #6E2A2E;
+        padding: 0.5rem 1rem;
+        color: white;
+        font-size: 0.85rem;
+        border-radius: 5px;
+    }
+
+    .dashboard-subtitle {
+        padding-bottom: 0.5rem;
     }
 
     .dashboard-date {
